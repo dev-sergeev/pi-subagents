@@ -75,8 +75,7 @@ assert.notEqual(negative.status, 0, "bare Bun must not resolve a downloaded or i
 assert.match(negative.stderr, /Cannot find (?:module|package).*pi-coding-agent/);
 const version = run("version", "bwrap", [...sandbox, "--", "/stage/pi-native", "--version"]);
 assert.equal(version.status, 0, version.stderr);
-assert.equal(version.stdout.trim(), release.version, "official executable must report the pinned SDK version");
-fs.writeFileSync(path.join(root, "identity.json"), JSON.stringify({ binary, sha256: release.binarySha256, version: version.stdout.trim(), packed: tarball.filename, network: "unshared", automaticInstall: "disabled; negative control verified" }, null, 2));
+fs.writeFileSync(path.join(root, "identity.json"), JSON.stringify({ binary, sha256: release.binarySha256, releaseVersion: release.version, reportedVersion: version.stdout.trim(), packed: tarball.filename, network: "unshared", automaticInstall: "disabled; negative control verified" }, null, 2));
 const bootstrap = "/stage/package/src/runs/background/binary-bootstrap.js";
 if (mode === "missing-bootstrap") fs.renameSync(path.join(root, "package/src/runs/background/binary-bootstrap.js"), path.join(root, "withheld-binary-bootstrap.js"));
 const hostArgs = ["/stage/pi-native", "--no-extensions", "--no-skills", "--no-prompt-templates", "--no-session", "--mode", "rpc"];

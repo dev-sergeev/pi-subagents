@@ -20,6 +20,8 @@ On Linux x64 with Node, npm, tar and bubblewrap installed, provision dependencie
 
 The [official 0.85.1 release metadata](https://api.github.com/repos/earendil-works/pi/releases/tags/v0.85.1) identifies the archive SHA-256 as `494e498f47d74d21f40b3386f6a5e921a3d49531a169cab55bbdaca0ea1fe25a`. The executable SHA-256, computed from that downloaded archive without executing it, is `443bd83f30e4dbc7bac2eed9c6aa2461b9a15016fd555f48c92a0591d028c403`. These identities are recorded in `test/smoke/standalone-release.json`; they are not runtime-success receipts.
 
+That checksum-pinned executable reports `0.0.0` for `--version` in Linux CI. The gate identifies the release by its archive and executable hashes, not by that misleading display string. `identity.json` records the release tag as `releaseVersion` and the actual CLI output separately as `reportedVersion`.
+
 ```bash
 npm ci --ignore-scripts
 release_dir="$(mktemp -d)"
@@ -31,7 +33,7 @@ tar -xzf "$release_dir/release.tar.gz" -C "$release_dir"
 node test/smoke/standalone-matrix.mjs "$release_dir/pi/pi" "$(mktemp -d)/matrix"
 ```
 
-The `official-standalone` CI job runs this gate against 0.85.1. Both archive and executable hashes are pinned, and the executable must report the pinned version. Each of 18 modes gets a fresh stage with no filesystem core SDK/shim, empty installation caches and isolated network/PID namespaces. Bare-Bun SDK import must fail; accepted execution uses Pi's actual loader. Missing sandbox support or running on a different platform fails rather than producing a skipped success. Use disk-backed storage: retained stages can occupy several GiB. Darwin cannot run this Linux x64/bubblewrap gate; a Linux CI receipt remains required.
+The `official-standalone` CI job runs this gate against 0.85.1. Both archive and executable hashes are pinned. Each of 18 modes gets a fresh stage with no filesystem core SDK/shim, empty installation caches and isolated network/PID namespaces. Bare-Bun SDK import must fail; accepted execution uses Pi's actual loader. Missing sandbox support or running on a different platform fails rather than producing a skipped success. Use disk-backed storage: retained stages can occupy several GiB. Darwin cannot run this Linux x64/bubblewrap gate; a Linux CI receipt remains required.
 
 The matrix exercises public launch/notification, workflows, same-run concurrent sessions, parallel stop, targeted steer/interrupt, child/tool/run deadlines, missing bootstrap, post-spawn persistence/authorization failures, SDK initialization failure, malformed bootstrap input/EOF with an authorized positive control, and competing revival. The provider is deterministic, but SDK sessions, runner and public extension are real. Only startup-failure writes are faulted.
 

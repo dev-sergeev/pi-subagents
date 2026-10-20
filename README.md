@@ -122,7 +122,7 @@ For installed-version help, use `/subagents-guide [topic]` or `subagent({ action
 
 ## Releasing this fork
 
-Release development uses the `gigachat` branch; `main` preserves the newer upstream history. Update the version in `package.json` and `package-lock.json`, record the release in `CHANGELOG.md`, and push a matching `v<version>` tag for the tested commit.
+Release development uses the `gigachat` branch; `main` preserves the newer upstream history. Update the version in `package.json` and `package-lock.json` and record the release in `CHANGELOG.md`. Require a green `Tests` run, including the 18-case `official-standalone` Linux gate, before pushing a matching `v<version>` tag for that tested commit.
 
 Run the `Release` GitHub Actions workflow on that tag and approve its protected `release` environment. The workflow rejects another repository, an unscoped package, a branch ref or a mismatched tag. It runs the tests and native activation smoke, builds `dist-pkg`, and publishes only that generated public package with provenance. Never publish the private source root.
 
