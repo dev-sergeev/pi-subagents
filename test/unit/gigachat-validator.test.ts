@@ -4,7 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const repository = fileURLToPath(new URL("../../", import.meta.url));
 // Observed official /functions/validate response, rules 1.0.6; no credentials or model replies.
@@ -40,7 +40,7 @@ for (const scenario of [
 			fs.writeFileSync(preload, `globalThis.fetch = async () => new Response(${JSON.stringify(JSON.stringify(scenario.response))}, { status: 200 });\n`);
 			const out = path.join(root, "result");
 			const child = spawnSync(process.execPath, [
-				"--import", preload,
+				"--import", pathToFileURL(preload).href,
 				"examples/gigachat-compatibility/validate.mjs",
 				"--input", "examples/gigachat-compatibility/evidence/sdk",
 				"--out", out,

@@ -1,0 +1,47 @@
+{
+  "format": 1,
+  "sourceCommit": "5f8ec2754a5320dbd88101ee177157d007047b54",
+  "ciRun": "https://github.com/dev-sergeev/pi-subagents/actions/runs/39400327692",
+  "ciJob": "https://github.com/dev-sergeev/pi-subagents/actions/runs/39400327692/job/118553129783",
+  "jobConclusion": "success",
+  "overallRunConclusion": "failure",
+  "overallRunFailure": "Windows unit validator harness passed a drive-letter path to Node --import instead of a file URL; the standalone job and every other job passed.",
+  "matrix": {
+    "release": {
+      "version": "0.85.1",
+      "platform": "linux",
+      "arch": "x64",
+      "url": "https://github.com/earendil-works/pi/releases/download/v0.85.1/pi-linux-x64.tar.gz",
+      "archiveSha256": "494e498f47d74d21f40b3386f6a5e921a3d49531a169cab55bbdaca0ea1fe25a",
+      "binarySha256": "443bd83f30e4dbc7bac2eed9c6aa2461b9a15016fd555f48c92a0591d028c403"
+    },
+    "complete": true,
+    "packageSha256": "7990dc2808b200da744dddfaf20472db36e8e4a82105e684ce5574add6bb388f",
+    "cases": [
+      { "mode": "single", "startedAt": "2026-10-20T09:24:23.136Z", "durationMs": 14676, "exitCode": 0 },
+      { "mode": "workflow", "startedAt": "2026-10-20T09:24:37.825Z", "durationMs": 23398, "exitCode": 0 },
+      { "mode": "shared-run", "startedAt": "2026-10-20T09:25:01.235Z", "durationMs": 14354, "exitCode": 0 },
+      { "mode": "parallel-stop", "startedAt": "2026-10-20T09:25:15.602Z", "durationMs": 14095, "exitCode": 0 },
+      { "mode": "targeted-controls", "startedAt": "2026-10-20T09:25:29.711Z", "durationMs": 17145, "exitCode": 0 },
+      { "mode": "steer", "startedAt": "2026-10-20T09:25:46.869Z", "durationMs": 14147, "exitCode": 0 },
+      { "mode": "interrupt", "startedAt": "2026-10-20T09:26:01.033Z", "durationMs": 14591, "exitCode": 0 },
+      { "mode": "stop", "startedAt": "2026-10-20T09:26:15.639Z", "durationMs": 14253, "exitCode": 0 },
+      { "mode": "child-stop", "startedAt": "2026-10-20T09:26:29.905Z", "durationMs": 14285, "exitCode": 0 },
+      { "mode": "child-timeout", "startedAt": "2026-10-20T09:26:44.203Z", "durationMs": 16140, "exitCode": 0 },
+      { "mode": "run-timeout", "startedAt": "2026-10-20T09:27:00.356Z", "durationMs": 16392, "exitCode": 0 },
+      { "mode": "tool-timeout", "startedAt": "2026-10-20T09:27:16.761Z", "durationMs": 15053, "exitCode": 0 },
+      { "mode": "missing-bootstrap", "startedAt": "2026-10-20T09:27:31.827Z", "durationMs": 7998, "exitCode": 0 },
+      { "mode": "persistence-failure", "startedAt": "2026-10-20T09:27:39.838Z", "durationMs": 9836, "exitCode": 0 },
+      { "mode": "authorization-failure", "startedAt": "2026-10-20T09:27:49.686Z", "durationMs": 10032, "exitCode": 0 },
+      { "mode": "sdk-init-failure", "startedAt": "2026-10-20T09:27:59.733Z", "durationMs": 13948, "exitCode": 0 },
+      { "mode": "bootstrap-errors", "startedAt": "2026-10-20T09:28:13.693Z", "durationMs": 47409, "exitCode": 0 },
+      { "mode": "revival", "startedAt": "2026-10-20T09:29:01.115Z", "durationMs": 26760, "exitCode": 0 }
+    ]
+  },
+  "publicNpmLaunch": {
+    "version": "0.85.1",
+    "runtime": "Node",
+    "publicLaunch": true,
+    "network": "unshared"
+  }
+}
