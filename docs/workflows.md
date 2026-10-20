@@ -17,7 +17,7 @@ Launch children in the background (`async` follows `asyncByDefault`, normally tr
 Child-safety boundaries are enforced at runtime:
 
 - Child sessions do not receive the bundled `pi-subagents` skill.
-- Child context filtering removes parent-only subagent artifacts (hidden orchestration-instruction messages, slash/status/control messages, and `subagent` tool-call/tool-result history) while preserving ordinary prose and unrelated tool calls/results. A forked child sends the history it inherited exactly as the parent sent it, so its first request can reuse the parent's prompt cache; it still cannot run `subagent`.
+- Child context filtering removes parent-only subagent artifacts (hidden orchestration-instruction messages, slash/status/control messages, and `subagent` tool-call/tool-result history) while preserving ordinary prose and unrelated tool calls/results. A forked child preserves its inherited conversation, but sends its own filtered system prompt and actual tools. Supported cache-key/session-affinity routing remains enabled; Pi 0.85.1 cannot guarantee a parent-prefix cache hit. Inherited tool history never authorizes calling `subagent`.
 - By default, children do not register the `subagent` tool and receive boundary instructions that they are not the parent orchestrator and must not propose or run subagents.
 - The explicit exception is an agent whose resolved builtin `tools` includes `subagent`; that child gets a child-safe `subagent` tool for the fanout work the parent assigned, still bounded by `maxSubagentDepth`.
 
@@ -57,11 +57,11 @@ Use top-level `await`, plain helper functions, or Promise chains; nested async f
 
 The `workflow` field selects the script source:
 
-- `workflow: true` runs the one ```` ```js workflow ```` fenced block written in the same assistant reply as the `subagent` call. The script is plain text in the reply, so it needs no JSON string escaping. A reply can carry exactly one such block and one `workflow: true` call; zero or several blocks fail. A reply with no tagged block may instead carry exactly one plain ```` ```js ```` block, which then runs. A line containing only ```` ``` ```` (three or more backticks, optionally followed by spaces or tabs) ends the block, so keep Markdown fences inside quoted strings.
+- `workflow: "true"` runs the one ```` ```js workflow ```` fenced block written in the same assistant reply as the `subagent` call. The script is plain text in the reply, so it needs no JSON string escaping. A reply can carry exactly one such block and one `workflow: "true"` call; zero or several blocks fail. A reply with no tagged block may instead carry exactly one plain ```` ```js ```` block, which then runs. A line containing only ```` ``` ```` (three or more backticks, optionally followed by spaces or tabs) ends the block, so keep Markdown fences inside quoted strings.
 - A string containing `/` (or `\` in a Windows path), such as `workflow: "./workflows/review.js"`, is a script file.
-- Any other string, such as `workflow: "review"`, is a [named workflow resource](#named-workflow-resources-for-permission-extensions). The string `"true"` is read as `workflow: true`, because some MCP clients send the boolean as a string.
+- Any other non-empty string, such as `workflow: "review"`, is a [named workflow resource](#named-workflow-resources-for-permission-extensions). The string `"true"` is reserved for the reply block.
 
-`workflow: true` works only from a model tool call. Slash commands, RPC, and schedules pass scripts through their own inputs. Examples below that show only a ```` ```js workflow ```` block run with `subagent({ workflow: true })` in the same reply.
+`workflow: "true"` works only from a model tool call. Slash commands, RPC, and schedules pass scripts through their own inputs. Examples below that show only a ```` ```js workflow ```` block run with `subagent({ workflow: "true" })` in the same reply.
 
 For multi-step or parallel work, make exactly one top-level `subagent` workflow call with `async:true` and launch children only inside it. Read this guide for recipes rather than constructing a second top-level orchestration. Available sandbox helpers include `runs.run`, `runs.all`, `runs.lanes`, `runs.steer`, `runs.status`, `runs.ref`/`runs.refs`, `emit`, `console`, standard JavaScript, and mission `state` when enabled. No filesystem, shell, arbitrary Pi tools, or host globals are available; named resources alone may grant `runs.host` authority.
 
@@ -81,7 +81,7 @@ return results[0].output;
 ```
 
 ```js
-subagent({ action: "validate", workflow: true });
+subagent({ action: "validate", workflow: "true" });
 ```
 
 For a script stored in a file, pass its path:
@@ -113,7 +113,7 @@ subagent({ workflow: "run-ci", args: { command: "npm test" } });
 subagent({ workflow: "parallel", args: { tasks: [{ agent: "reviewer", task: "Review src/api" }, { agent: "scout", task: "Map the tests" }] } });
 ```
 
-The host resolves the name and validates bounded plain-JSON `args` before starting the workflow. Resource provenance is recorded in workflow details and receipts for downstream permission/policy checks. Resource authority is not caller-supplied: `runs.host` is available only when the resolved resource explicitly grants the requested host key and command. Reply-block (`workflow: true`) and file-path scripts remain raw, unknown-provenance inputs, so their `runs.host` calls are unavailable through the public execution boundary. Named resources cannot be combined with `agent` or `task`; the package ships the `review`, `run-ci` and `parallel` resources, not a user/project resource registry.
+The host resolves the name and validates bounded plain-JSON `args` before starting the workflow. Resource provenance is recorded in workflow details and receipts for downstream permission/policy checks. Resource authority is not caller-supplied: `runs.host` is available only when the resolved resource explicitly grants the requested host key and command. Reply-block (`workflow: "true"`) and file-path scripts remain raw, unknown-provenance inputs, so their `runs.host` calls are unavailable through the public execution boundary. Named resources cannot be combined with `agent` or `task`; the package ships the `review`, `run-ci` and `parallel` resources, not a user/project resource registry.
 
 `parallel` runs independent children together without writing a script: `args.tasks` is a list of `{ agent, task }` items, the children run in one `runs.all` batch, and the result lists each child's output in order. A failed child fails the workflow. Use a workflow script when steps depend on each other.
 
@@ -128,7 +128,7 @@ return runs.run("review", { agent: "reviewer", task: "Review:\n" + scan.output }
 
 ```js
 subagent({
-  workflow: true,
+  workflow: "true",
   options: {
     timeoutMs: 900000,
     toolBudget: { soft: 40, hard: 60 },
@@ -145,7 +145,7 @@ subagent({
 
 These controls are opt-in. Avoid tight hard budgets for mutation-capable workers unless the workflow has an explicit checkpoint and handoff path.
 
-The optional `preflight` lane hints apply only to raw scripts (`workflow: true` or a script path), not named workflows or direct child calls. They are display-only: mismatched coverage warns but never changes execution authority.
+The optional `preflight` lane hints apply only to raw scripts (`workflow: "true"` or a script path), not named workflows or direct child calls. They are display-only: mismatched coverage warns but never changes execution authority.
 
 The result is `{ ok, errors }`. Invalid scripts return a tool error and include line and column data when available. Validation checks syntax, portable nested-async rules, literal `runs.run` and `runs.all` keys and child `baseRef` values, duplicate literal keys in one `runs.all` group, direct keyed access to a known `runs.all` result, and statically clear non-JSON boundary values. It also looks up literal `agent` names in `runs.run`, `runs.all`, and `runs.lanes` children against the agents discovered for the request `cwd` and `agentScope`, and reports unknown or ambiguous names with a close match when one exists. Children with their own `cwd`, `agentScope`, or `resume`, object spreads, and names built at runtime are left to launch time. Dynamic keys and other runtime-only values are accepted without a warning. Validation does not launch children or create run artifacts. Executing a workflow runs the same agent-name check first, so an unknown literal agent fails before any child launches.
 
@@ -159,7 +159,7 @@ return reviews.map(result => result.output);
 ```
 
 ```js
-subagent({ workflow: true });
+subagent({ workflow: "true" });
 ```
 
 Keep helper functions portable across Node and Bun. Use top-level `await`, plain helper functions that return `runs.run(...)`, or explicit Promise chains. Do not define nested `async function` helpers, async arrows, or async methods inside a workflow script; native async helpers hide child-launch observation in Bun and are rejected.
@@ -267,7 +267,7 @@ const results = await runs.all(items.map((item) => ({ key: item.key, agent: "cla
 const routed = results.map((r, i) => ({ key: items[i].key, ...JSON.parse(r.output) }));
 ```
 
-Command-runner agents are async-only; workflows launch children async by default, but a direct `async: false` call is refused. The runner gets only the assembled prompt, never a forked transcript, so keep `inheritProjectContext` and `inheritGlobalContext` off unless the command wants that text. See [examples/typed-gate](https://github.com/nicobailon/pi-subagents/tree/main/examples/typed-gate) for a runnable version of both shapes.
+Command-runner agents are async-only; workflows launch children async by default, but a direct `async: false` call is refused. The runner gets only the assembled prompt, never a forked transcript, so keep `inheritProjectContext` and `inheritGlobalContext` off unless the command wants that text. See [examples/typed-gate](https://github.com/dev-sergeev/pi-subagents/tree/main/examples/typed-gate) for a runnable version of both shapes.
 
 ### Host command steps
 
@@ -374,7 +374,7 @@ Legacy top-level `chain`, `tasks`, `parallel`, `chainDir`, `/chain`, `/parallel`
 // Old shape, no longer supported:
 // { chain: [{ agent: "scout", task: "Scan" }, { agent: "worker", task: "Fix from {previous}" }] }
 
-// Current shape: this ```js workflow block plus subagent({ workflow: true })
+// Current shape: this ```js workflow block plus subagent({ workflow: "true" })
 const scan = await runs.run("scan", { agent: "scout", task: "Scan" });
 return runs.run("fix", { agent: "worker", task: "Fix from: " + scan.output });
 ```
@@ -383,7 +383,7 @@ return runs.run("fix", { agent: "worker", task: "Fix from: " + scan.output });
 // Old shape, no longer supported:
 // { tasks: [{ agent: "reviewer", task: "Review API" }, { agent: "reviewer", task: "Review UI" }] }
 
-// Current shape: this ```js workflow block plus subagent({ workflow: true })
+// Current shape: this ```js workflow block plus subagent({ workflow: "true" })
 return runs.all([
   { key: "api", agent: "reviewer", task: "Review API" },
   { key: "ui", agent: "reviewer", task: "Review UI" }
@@ -455,11 +455,11 @@ return { api: api.artifactPaths, ui: ui.artifactPaths };
 
 Each child uses the existing worktree lifecycle: it branches from clean HEAD, journals ownership before launch, captures a patch and handoff manifest, then removes cleanly captured temporary worktrees and branches. The handoff manifest path remains available in the child's `artifactPaths`; return or emit it when the orchestrator needs to apply or inspect the patches. `worktree.cleanup` scans only the repository's project artifacts, so a workflow child's worktree is reported as unknown until you pass that manifest as `options.handoffPath`; worktrees of retained, resumable children are then kept rather than removed. `runs.ref` stays concise and intentionally omits full paths.
 
-A top-level `{ workflow: true, worktree: true }` makes isolation the default for every workflow child. An individual child can override that default with `worktree: false`. Keep one writer when parallel writes are not intentionally isolated.
+A top-level `{ workflow: "true", worktree: true }` makes isolation the default for every workflow child. An individual child can override that default with `worktree: false`. Keep one writer when parallel writes are not intentionally isolated.
 
 Before a materialized `runs.run` or `runs.all` group dispatches fresh children, isolated sources must be Git repositories with clean working trees (excluding `.pi/subagents/` runtime state). A rejected group dispatches no children and spends no fan-out slots or child output claims; key-level failure traces can remain. Checks are shared only within that group, are cancellable, and run again at allocation because sources can change. Retained resumes keep their stored contracts. Select the correct cwd or arrange an operator-approved commit/stash; isolation is never dropped automatically.
 
-Use `baseRef` to branch managed worktrees from `HEAD` or a supported named ref such as `refs/heads/release`, `refs/tags/v1`, or `origin/main`. Full 40/64-character commit IDs and revision expressions such as `HEAD~1` are unsupported. For example, `{ workflow: true, worktree: true, baseRef: "refs/heads/release" }` applies the release ref to children unless a child supplies its own `baseRef`. If omitted, the default `HEAD` is resolved at worktree allocation, not when the script is validated or a schedule is created. The source checkout must still be clean, and the ref must resolve to a commit before any worktree is allocated.
+Use `baseRef` to branch managed worktrees from `HEAD` or a supported named ref such as `refs/heads/release`, `refs/tags/v1`, or `origin/main`. Full 40/64-character commit IDs and revision expressions such as `HEAD~1` are unsupported. For example, `{ workflow: "true", worktree: true, baseRef: "refs/heads/release" }` applies the release ref to children unless a child supplies its own `baseRef`. If omitted, the default `HEAD` is resolved at worktree allocation, not when the script is validated or a schedule is created. The source checkout must still be clean, and the ref must resolve to a commit before any worktree is allocated.
 
 Configure the worktree provider, native path layout, base directory, and setup hook in [configuration.md](configuration.md).
 
@@ -496,7 +496,7 @@ Inspect the handoff before reconciliation; cleanup still requires fresh checks.
 
 ## Supervisor coordination (child asks parent)
 
-Child agents can talk back to the parent Pi session without installing `pi-intercom`. `pi-subagents` provides the child-facing `contact_supervisor` tool and the parent-facing `subagent_supervisor({ action: "reply" })` path natively. A session that has `subagent` also declares `contact_supervisor`, so a forked child's tools match its parent's; there it only returns an error saying the session has no supervisor. Generic `intercom` remains available only when an explicitly loaded external provider supplies it.
+Child agents can talk back to the parent Pi session without installing `pi-intercom`. `pi-subagents` provides the child-facing `contact_supervisor` tool and parent-facing `subagent_supervisor` natively. A session that has `subagent` also declares `contact_supervisor`, so a forked child's tools match its parent's; there it only returns an error saying the session has no supervisor. Generic `intercom` remains available only when an explicitly loaded external provider supplies it.
 
 Use it for work where the child might need a decision instead of guessing:
 
@@ -516,7 +516,7 @@ The child uses one dedicated coordination tool, `contact_supervisor`, with a `re
 
 Children should not ask for clarification when the only conflict is review-only/no-edit versus progress-writing or artifact-writing instructions; no-edit wins.
 
-The parent replies with `subagent_supervisor({ action: "reply", replyTo, message })` or checks pending requests with `subagent_supervisor({ action: "pending" })`. Supervisor messages are scoped to the exact Pi session id that spawned the child. A second Pi session in the same repository does not receive those requests.
+The parent replies with `subagent_supervisor({ action: "reply", replyTo, replyText })` or checks pending requests with `subagent_supervisor({ action: "pending" })`. `replyText` is required for a reply; the parent tool has no `message` alias. The child-facing `contact_supervisor.message` and internal transport records are unchanged. Supervisor messages are scoped to the exact Pi session id that spawned the child. A second Pi session in the same repository does not receive those requests.
 
 A nested coordinator needs both directions of coordination. If its agent declares an explicit `tools` allowlist, include `subagent_supervisor` to answer its own children, alongside `subagent` for delegation and `contact_supervisor` for asking its parent:
 

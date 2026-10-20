@@ -1,0 +1,29 @@
+{
+  "format": 1,
+  "evidenceKind": "pi-gigachat-real-model-smoke",
+  "model": "gigachat-compatibility/GigaChat-3-Ultra",
+  "startedAt": "2026-10-20T05:27:08.924Z",
+  "selectedScenarios": [
+    "single-agent"
+  ],
+  "complete": true,
+  "passed": false,
+  "cases": [
+    {
+      "name": "single-agent",
+      "passed": false,
+      "evidence": "single-agent.json",
+      "facts": {
+        "activation": true,
+        "childRead": false,
+        "childCompleted": true,
+        "nonceInFinalParentAnswer": true,
+        "nonceInProviderDeliveredResult": true,
+        "publicStringOutputAndFreshOptions": false,
+        "foregroundSingleLaunch": true
+      },
+      "failure": "Acceptance failed: childRead, publicStringOutputAndFreshOptions"
+    }
+  ],
+  "completedAt": "2026-10-20T05:27:26.818Z"
+}

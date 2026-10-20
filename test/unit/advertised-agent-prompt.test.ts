@@ -67,7 +67,7 @@ describe("advertised agent prompt", () => {
 		assert.match(over, /<omitted count="1"/);
 	});
 
-	it("builds a section body without the outer tag that Pi adds from the section key", () => {
+	it("wraps the current catalog for the returned system prompt", () => {
 		const agents = [agent("alpha", { advertise: true }), agent("hidden")];
 		const body = buildAdvertisedAgentCatalog(agents)!;
 		assert.doesNotMatch(body, /advertised_subagents/);

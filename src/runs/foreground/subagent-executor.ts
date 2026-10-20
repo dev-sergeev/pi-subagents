@@ -3877,11 +3877,14 @@ function resolveWorkflowChildOutputPath(input: {
 	discoverAgents: (cwd: string, scope: AgentScope) => { agents: AgentConfig[] };
 	agents: AgentConfig[];
 	workflowAgentScope?: unknown;
+	defaultOutput?: unknown;
 	state?: SubagentState;
 	key: string;
 	params: Record<string, unknown>;
 }): { path?: string; inherited: boolean; resumedSavedPath?: string } {
-	const rawOutput = input.params.output;
+	const defaultOutput = input.defaultOutput;
+	const rawOutput = input.params.output !== undefined ? input.params.output
+		: defaultOutput === false || defaultOutput === "false" ? false : undefined;
 	const hasExplicitOutput = typeof rawOutput === "string" || typeof rawOutput === "boolean";
 	if (typeof input.params.resume === "string" && (!hasExplicitOutput || rawOutput === true || rawOutput === "true")) {
 		if (!input.state) return { path: undefined, inherited: false };
@@ -3928,6 +3931,7 @@ function workflowChildOutputClaims(input: {
 	discoverAgents: (cwd: string, scope: AgentScope) => { agents: AgentConfig[] };
 	agents: AgentConfig[];
 	workflowAgentScope?: unknown;
+	defaultOutput?: unknown;
 	state: SubagentState;
 	claimedOutputPaths: Map<string, string>;
 	entries: Array<{ key: string; params: Record<string, unknown> }>;
@@ -3997,7 +4001,7 @@ function prepareWorkflowChildLaunchParams(input: {
 	} else if (usesDefaultOutput && input.aggregateOutputPath !== undefined) {
 		childParams = { ...input.childParams, output: workflowChildDefaultOutput(input.aggregateOutputPath, input.artifactsDir, input.parentWorkflowRunId, input.workflowKey) };
 	} else if (input.childParams.resume === undefined || input.childParams.output !== undefined) {
-		const resolvedOutput = resolveWorkflowChildOutputPath({ ctxCwd: input.ctxCwd, workflowCwd: input.workflowCwd, artifactsDir: input.artifactsDir, workflowRunId: input.parentWorkflowRunId, aggregateOutputPath: input.aggregateOutputPath, configuredOutputBaseDir: input.configuredOutputBaseDir, discoverAgents: input.discoverAgents, agents: input.agents, workflowAgentScope: input.workflowAgentScope, key: input.workflowKey, params: input.childParams });
+		const resolvedOutput = resolveWorkflowChildOutputPath({ ctxCwd: input.ctxCwd, workflowCwd: input.workflowCwd, artifactsDir: input.artifactsDir, workflowRunId: input.parentWorkflowRunId, aggregateOutputPath: input.aggregateOutputPath, configuredOutputBaseDir: input.configuredOutputBaseDir, discoverAgents: input.discoverAgents, agents: input.agents, workflowAgentScope: input.workflowAgentScope, defaultOutput: input.workflowDefaults.output, key: input.workflowKey, params: input.childParams });
 		if (resolvedOutput.path) childParams = { ...input.childParams, output: resolvedOutput.path };
 	}
 	const childCwd = resolveWorkflowChildLocalCwd({ ...input, params: childParams });
@@ -5448,7 +5452,7 @@ export function createSubagentExecutor(deps: ExecutorDeps): {
 		};
 		try {
 			if (requestParams.preflight !== undefined && requestParams.workflowScript === undefined) {
-				throw new Error("preflight requires workflow: true or a workflow script path.");
+				throw new Error("preflight requires workflow: \"true\" or a workflow script path.");
 			}
 			workflowPreflight = normalizeWorkflowPreflight(requestParams.preflight);
 			if (workflowPreflight) requestParams = { ...requestParams, preflight: workflowPreflight };
@@ -6252,7 +6256,7 @@ export function createSubagentExecutor(deps: ExecutorDeps): {
 							admit: async (calls, admissionSignal) => {
 								admitEnabledWorkflowChildren(calls);
 								await preflightWorkflowWorktrees({ workflowDefaults: workflowChildDefaults, defaultWorktree: deps.config.worktree, calls, ctxCwd: parentCwd, signal: admissionSignal, deadlineAt: workflowDeadlineAt });
-								const outputClaims = workflowChildOutputClaims({ ctxCwd: parentCwd, workflowCwd, artifactsDir: workflowArtifactsDir, workflowRunId, aggregateOutputPath: workflowAggregateOutputPath, configuredOutputBaseDir, discoverAgents: discoverWorkflowAgents, agents: workflowAgents, workflowAgentScope: workflowChildDefaults.agentScope, state: deps.state, claimedOutputPaths, entries: calls });
+								const outputClaims = workflowChildOutputClaims({ ctxCwd: parentCwd, workflowCwd, artifactsDir: workflowArtifactsDir, workflowRunId, aggregateOutputPath: workflowAggregateOutputPath, configuredOutputBaseDir, discoverAgents: discoverWorkflowAgents, agents: workflowAgents, workflowAgentScope: workflowChildDefaults.agentScope, defaultOutput: workflowChildDefaults.output, state: deps.state, claimedOutputPaths, entries: calls });
 								if (outputClaims.error) throw new Error(outputClaims.error);
 								status.runFanoutBudget = claimRunFanoutBatch(workflowFanoutBudget, calls.map(({ key }) => `workflow[${key}]`));
 								if (outputClaims.claims) applyWorkflowChildOutputClaims(claimedOutputPaths, outputClaims.claims);
@@ -6565,7 +6569,7 @@ export function createSubagentExecutor(deps: ExecutorDeps): {
 					admit: async (calls, admissionSignal) => {
 						admitEnabledWorkflowChildren(calls);
 						await preflightWorkflowWorktrees({ workflowDefaults: workflowChildDefaults, defaultWorktree: deps.config.worktree, calls, ctxCwd: ctx.cwd, signal: admissionSignal, deadlineAt: workflowDeadlineAt });
-						const outputClaims = workflowChildOutputClaims({ ctxCwd: ctx.cwd, workflowCwd, artifactsDir: workflowArtifactsDir, workflowRunId: foregroundWorkflowRunId, aggregateOutputPath: workflowAggregateOutputPath, configuredOutputBaseDir, discoverAgents: discoverWorkflowAgents, agents: workflowAgents, workflowAgentScope: workflowChildDefaults.agentScope, state: deps.state, claimedOutputPaths, entries: calls });
+						const outputClaims = workflowChildOutputClaims({ ctxCwd: ctx.cwd, workflowCwd, artifactsDir: workflowArtifactsDir, workflowRunId: foregroundWorkflowRunId, aggregateOutputPath: workflowAggregateOutputPath, configuredOutputBaseDir, discoverAgents: discoverWorkflowAgents, agents: workflowAgents, workflowAgentScope: workflowChildDefaults.agentScope, defaultOutput: workflowChildDefaults.output, state: deps.state, claimedOutputPaths, entries: calls });
 						if (outputClaims.error) throw new Error(outputClaims.error);
 						claimRunFanoutBatch(workflowFanoutBudget, calls.map(({ key }) => `workflow[${key}]`));
 						if (outputClaims.claims) applyWorkflowChildOutputClaims(claimedOutputPaths, outputClaims.claims);
@@ -8111,7 +8115,7 @@ export function createSubagentExecutor(deps: ExecutorDeps): {
 		const workflow = publicParams.workflow;
 		const errorResult = (text: string): Promise<AgentToolResult<Details>> => Promise.resolve({ content: [{ type: "text", text }], isError: true, details: { mode: publicParams.action ? "management" : "workflow", results: [] } });
 		// Models tend to put script text in the workflow string; say how to pass it instead.
-		const scriptTextHint = " A workflow string is a named workflow resource or a script file path. To run script text, write it in one ```js workflow block in the same reply and call subagent({ workflow: true }).";
+		const scriptTextHint = " A workflow string is a named workflow resource or a script file path. To run script text, write it in one ```js workflow block in the same reply and call subagent({ workflow: \"true\" }).";
 		if (publicParams.tasks !== undefined || publicParams.chain !== undefined) {
 			// Normalization admits chain/tasks only with workflow scripts disabled; the original input was checked above.
 			const kind = publicParams.tasks !== undefined ? "tasks" : "chain";

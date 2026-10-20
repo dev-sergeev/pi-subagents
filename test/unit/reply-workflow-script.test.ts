@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { readReplyWorkflowScript } from "../../src/extension/reply-workflow-script.ts";
 
-const call = (id: string, args: Record<string, unknown> = { workflow: true }) => ({ type: "toolCall", id, name: "subagent", arguments: args });
+const call = (id: string, args: Record<string, unknown> = { workflow: "true" }) => ({ type: "toolCall", id, name: "subagent", arguments: args });
 const branch = (...content: unknown[]) => ({ getBranch: () => [{ type: "message", message: { role: "assistant", content } }] }) as never;
 
 describe("reply workflow block", () => {
@@ -27,7 +27,7 @@ describe("reply workflow block", () => {
 			[branch({ type: "text", text: "```js\na();\n```\n```js\nb();\n```" }, call("call-1")), /found 0\. This reply has 2 untagged js blocks/],
 			[branch({ type: "text", text: `${block}\n${block}` }, call("call-1")), /found 2/],
 			[branch({ type: "text", text: "```js workflow\nreturn 1;" }, call("call-1")), /not closed/],
-			[branch({ type: "text", text: block }, call("call-1"), call("call-2")), /2 subagent calls with workflow: true/],
+			[branch({ type: "text", text: block }, call("call-1"), call("call-2")), /2 subagent calls/],
 			[branch({ type: "text", text: block }, call("other-call")), /only works from a model subagent tool call/],
 		] as const) {
 			const result = readReplyWorkflowScript(manager, "call-1");

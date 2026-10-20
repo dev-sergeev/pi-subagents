@@ -1,0 +1,141 @@
+{
+  "model": "GigaChat-3-Ultra",
+  "piVersion": "0.87.0",
+  "providerVersion": "0.6.4",
+  "registrationBoundary": "Real installed library provider through current Pi ModelRuntime native registration; not saved-connection restoration",
+  "credentialsPersisted": false,
+  "transcriptAdapterUsed": false,
+  "tlsVerified": true,
+  "providerPathAcceptance": false,
+  "liveScenariosCompleted": [],
+  "promptOnlyBaseline": {
+    "stopReason": "stop",
+    "content": [
+      {
+        "type": "text",
+        "text": "ULTRA_CONNECTION_OK"
+      }
+    ],
+    "errorMessage": null,
+    "usage": {
+      "input": 55,
+      "output": 5,
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "totalTokens": 60,
+      "cost": {
+        "input": 0,
+        "output": 0,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "total": 0
+      }
+    }
+  },
+  "sessionMessages": [
+    {
+      "role": "system",
+      "content": "",
+      "sections": {
+        "preamble": "You are an expert coding assistant operating inside pi, a coding agent harness. You help users by reading files, executing commands, editing code, and writing new files.",
+        "tools": "<tools>\n- subagents_enable: pi-subagents is installed. For authorized specialist, independent-review, or parallel work, call subagents_enable, then subagent. Authorization must come from the current request or applicable instructions; complexity alone is not authorization.\n\nIn addition to the tools above, you may have access to other custom tools depending on the project.\n</tools>",
+        "rules": "<rules>\n- Be concise in your responses\n- Show file paths clearly when working with files\n</rules>",
+        "docs": "<docs>\nPi documentation (read only when the user asks about pi itself, its SDK, extensions, themes, skills, or TUI):\n- Main documentation: /Users/kpaq/Documents/code/pi-subagents/node_modules/@earendil-works/pi-coding-agent/README.md\n- Additional docs: /Users/kpaq/Documents/code/pi-subagents/node_modules/@earendil-works/pi-coding-agent/docs\n- Examples: /Users/kpaq/Documents/code/pi-subagents/node_modules/@earendil-works/pi-coding-agent/examples (extensions, custom tools, SDK)\n- When reading pi docs or examples, resolve docs/... under Additional docs and examples/... under Examples, not the current working directory\n- When asked about: extensions (docs/extensions.md, examples/extensions/), themes (docs/themes.md), skills (docs/skills.md), prompt templates (docs/prompt-templates.md), TUI components (docs/tui.md), keybindings (docs/keybindings.md), SDK integrations (docs/sdk.md), custom providers (docs/custom-provider.md), adding models (docs/models.md), pi packages (docs/packages.md), environment variables (docs/environment-variables.md)\n- When working on pi topics, read the docs and examples, and follow .md cross-references before implementing\n- Always read pi .md files completely and follow links to related docs (e.g., tui.md for TUI API details)\n</docs>",
+        "cwd": "<cwd>\n/var/folders/3t/klpc9c5d5l5fpkgynvj92ys00000gn/T/pi-gigachat-authenticated-paA8Ft/passive-ultra/project\n</cwd>"
+      },
+      "timestamp": 1792443019718,
+      "toolsAdded": [
+        {
+          "name": "subagents_enable",
+          "description": "Enable pi-subagents delegation and management tools without launching work. Call when delegation is authorized by the current request or applicable user/project instructions, or when managing existing runs. Direct execution is the default; complexity alone never authorizes delegation. Full tools are available on the next model request.",
+          "parameters": {
+            "type": "object",
+            "properties": {}
+          }
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Вызови subagents_enable с пустыми аргументами. Затем сообщи фактический результат активации инструмента."
+        }
+      ],
+      "timestamp": 1792443019717
+    },
+    {
+      "role": "assistant",
+      "content": [],
+      "api": "gigachat-extension-api",
+      "provider": "gigachat",
+      "model": "GigaChat-3-Ultra",
+      "stopReason": "error",
+      "timestamp": 1792443019719,
+      "usage": {
+        "input": 0,
+        "output": 0,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "totalTokens": 0,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      },
+      "errorMessage": "message.content.filter is not a function"
+    }
+  ],
+  "registeredTools": [
+    "read",
+    "bash",
+    "powershell",
+    "edit",
+    "write",
+    "grep",
+    "find",
+    "ls",
+    "subagent",
+    "contact_supervisor",
+    "bg_wait",
+    "subagents_enable",
+    "subagent_supervisor"
+  ],
+  "transport": [
+    {
+      "model": "GigaChat-3-Ultra",
+      "functions": null,
+      "messageRoles": [
+        "system",
+        "user"
+      ],
+      "functionCall": "none",
+      "httpStatus": 200
+    }
+  ],
+  "transcriptShapes": [
+    [
+      {
+        "role": "user",
+        "contentShape": "text"
+      }
+    ],
+    [
+      {
+        "role": "system",
+        "contentShape": "text",
+        "toolsAdded": [
+          "subagents_enable"
+        ]
+      },
+      {
+        "role": "user",
+        "contentShape": "blocks"
+      }
+    ]
+  ]
+}

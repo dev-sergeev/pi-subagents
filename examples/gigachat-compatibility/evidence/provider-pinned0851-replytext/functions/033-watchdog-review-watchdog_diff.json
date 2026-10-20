@@ -1,0 +1,18 @@
+{
+  "name": "watchdog_diff",
+  "description": "Show the repository diff since the review baseline, plus untracked file paths, including edits by other sessions in this checkout. Optional path narrows it; stat:true returns per-file counts only.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "path": {
+        "type": "string",
+        "description": "Restrict the diff to one file or directory, relative to the repo root."
+      },
+      "stat": {
+        "type": "boolean",
+        "description": "Return per-file change counts instead of the full diff."
+      }
+    },
+    "additionalProperties": false
+  }
+}

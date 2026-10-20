@@ -1,0 +1,119 @@
+{
+  "name": "subagent",
+  "description": "Delegate to subagents from child-safe fanout mode.\nAllowed management/control actions: list, get, status, lane.status, interrupt, resume, steer, doctor.\nMutating management actions (create, update, delete, eject, disable, enable, reset, grant-spawn-budget, lane.recordMerge, lane.recordSupersession) are blocked in this mode.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "agent": {
+        "type": "string",
+        "description": "One-child agent or management target."
+      },
+      "task": {
+        "type": "string",
+        "description": "One-child task with agent, or the original request ({task}) with chain/tasks."
+      },
+      "tasks": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "object",
+          "properties": {
+            "agent": {
+              "type": "string",
+              "minLength": 1
+            },
+            "task": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "agent",
+            "task"
+          ],
+          "additionalProperties": false
+        },
+        "description": "Parallel children; results in order."
+      },
+      "chain": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "object",
+          "properties": {
+            "agent": {
+              "type": "string",
+              "minLength": 1
+            },
+            "task": {
+              "type": "string"
+            },
+            "as": {
+              "type": "string"
+            },
+            "parallel": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "properties": {
+                  "agent": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "task": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "agent",
+                  "task"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "description": "Sequential steps: {agent,task?,as?} or {parallel:[{agent,task}]}."
+      },
+      "async": {
+        "type": "boolean",
+        "description": "Background; default asyncByDefault. false only to block parent."
+      },
+      "model": {
+        "type": "string",
+        "description": "Child model provider/id; bare id only if unique. Suffix :off/minimal/low/medium/high/xhigh/max overrides agent thinking default."
+      },
+      "cwd": {
+        "type": "string",
+        "description": "Execution/project-pane directory."
+      },
+      "worktree": {
+        "type": "boolean",
+        "description": "Isolate each workflow child in a managed git worktree; child worktree:false overrides default."
+      },
+      "output": {
+        "type": "string",
+        "description": "Save path; \"false\": disable saving; \"true\": configured default; omit: inherit. Relative workflow paths use managed artifacts."
+      },
+      "action": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Management/control only; omit for execution. Discover actions with {action:\"guide\",options:{topic:\"tool-reference\"}}."
+      },
+      "id": {
+        "type": "string",
+        "description": "Run id/prefix for status/control."
+      },
+      "message": {
+        "type": "string",
+        "description": "resume/steer guidance or project.open prompt."
+      },
+      "options": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Every field not listed here, such as acceptance, timeoutMs, context, view and index; guide tool-reference/parameter-reference."
+      }
+    }
+  }
+}

@@ -1,0 +1,164 @@
+{
+  "format": 1,
+  "capturedAt": "2026-10-20T07:52:47.512Z",
+  "sdkVersion": "0.85.1",
+  "providerVersion": "0.6.4",
+  "model": "GigaChat-3-Ultra",
+  "providerUnmodified": true,
+  "transcriptAdapterUsed": false,
+  "providerDeclarations": {
+    "manifest": "provider-pinned0851-final/manifest.json",
+    "validation": "official-validator-pinned0851-final/summary.json",
+    "functions": 35,
+    "scenarios": 13,
+    "allAccepted": true,
+    "jsonAiRulesVersion": "1.0.6",
+    "allFinalCompiledHashesAndBodiesMatch": true
+  },
+  "liveScenarios": {
+    "summary": "live-pinned0851-final/summary.json",
+    "allPassed": true,
+    "passedCount": 6,
+    "totalCount": 6,
+    "cases": [
+      {
+        "name": "single-agent",
+        "passed": true,
+        "trace": "live-pinned0851-final/single-agent.json",
+        "facts": {
+          "activation": true,
+          "childRead": true,
+          "childCompleted": true,
+          "nonceInFinalParentAnswer": true,
+          "nonceInProviderDeliveredResult": true,
+          "publicStringOutputAndFreshOptions": true,
+          "foregroundSingleLaunch": true
+        },
+        "userPrompts": 1,
+        "clarifications": 0,
+        "ownedAsyncProcessesObservedClosed": 0
+      },
+      {
+        "name": "workflow-file",
+        "passed": true,
+        "trace": "live-pinned0851-final/workflow-file.json",
+        "facts": {
+          "activation": true,
+          "childRead": true,
+          "childCompleted": true,
+          "nonceInFinalParentAnswer": true,
+          "nonceInProviderDeliveredResult": true,
+          "publicStringOutputAndFreshOptions": true,
+          "fileWorkflow": true
+        },
+        "userPrompts": 1,
+        "clarifications": 0,
+        "ownedAsyncProcessesObservedClosed": 0
+      },
+      {
+        "name": "async",
+        "passed": true,
+        "trace": "live-pinned0851-final/async.json",
+        "facts": {
+          "activation": true,
+          "childRead": true,
+          "childCompleted": true,
+          "nonceInFinalParentAnswer": true,
+          "nonceInProviderDeliveredResult": true,
+          "publicStringOutputAndFreshOptions": true,
+          "actualAsyncRunId": true,
+          "awaitedActualRunId": true,
+          "actualAsyncResult": true
+        },
+        "userPrompts": 1,
+        "clarifications": 0,
+        "ownedAsyncProcessesObservedClosed": 1
+      },
+      {
+        "name": "supervisor",
+        "passed": true,
+        "trace": "live-pinned0851-final/supervisor.json",
+        "facts": {
+          "activation": true,
+          "childRead": true,
+          "childCompleted": true,
+          "nonceInFinalParentAnswer": true,
+          "nonceInProviderDeliveredResult": true,
+          "publicStringOutputAndFreshOptions": true,
+          "actualAsyncRunId": true,
+          "awaitedActualRunId": true,
+          "actualAsyncResult": true,
+          "pendingActualDecision": true,
+          "repliedActualDecision": true,
+          "childSupervisorTool": true,
+          "verifiedFinalAnswer": true
+        },
+        "userPrompts": 1,
+        "clarifications": 0,
+        "ownedAsyncProcessesObservedClosed": 1
+      },
+      {
+        "name": "structured-output",
+        "passed": true,
+        "trace": "live-pinned0851-final/structured-output.json",
+        "facts": {
+          "activation": true,
+          "childRead": true,
+          "childCompleted": true,
+          "nonceInFinalParentAnswer": true,
+          "nonceInProviderDeliveredResult": true,
+          "publicStringOutputAndFreshOptions": true,
+          "foregroundSingleLaunch": true,
+          "configuredStructuredProfile": true,
+          "validatedChildStructuredCapture": true
+        },
+        "userPrompts": 1,
+        "clarifications": 0,
+        "ownedAsyncProcessesObservedClosed": 0
+      },
+      {
+        "name": "watchdog",
+        "passed": true,
+        "trace": "live-pinned0851-final/watchdog.json",
+        "facts": {
+          "readActualFixture": true,
+          "realWarnToolCall": true,
+          "recordedWarning": true,
+          "laterRealRequestWithWarningResult": true,
+          "cleanReviewCompletion": true
+        },
+        "userPrompts": 0,
+        "clarifications": 0,
+        "ownedAsyncProcessesObservedClosed": 0
+      }
+    ]
+  },
+  "localVerification": "local-verification.json",
+  "cleanInstallReceipt": "clean-install-pinned0851.json",
+  "historicalFailuresPreserved": true,
+  "credentials": {
+    "authorizationKeyWritten": false,
+    "accessTokenInRepositoryOrEvidence": false,
+    "tlsVerificationDisabled": false,
+    "privateProfileRemoved": true,
+    "audit": {
+      "auditedTextFiles": 1712,
+      "auditedEvidenceFiles": 726,
+      "auditedCompressedTraces": 4,
+      "knownUserSecretsFound": false,
+      "compressedTracesDecodedSuccessfully": true
+    }
+  },
+  "limitations": [
+    "Linux x64 standalone 0.85.1 lifecycle matrix requires its separate CI receipt.",
+    "Scoped compatibility lint passes; repository-wide lint is not represented as passing."
+  ],
+  "allAcceptanceCriteriaPassed": true,
+  "parentReplyInput": "replyText",
+  "parentParameterOrder": [
+    "action",
+    "to",
+    "replyTo",
+    "replyText"
+  ]
+}

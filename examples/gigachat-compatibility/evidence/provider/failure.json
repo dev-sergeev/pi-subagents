@@ -1,0 +1,10 @@
+{
+  "complete": false,
+  "evidenceKind": "pi-gigachat-http-functions",
+  "message": "Prerequisite missing at saved model resolution (0 registered providers): compatible Pi/provider APIs, a saved --model from /gigachat, and valid credentials in --agent-dir are required. No inference or validator success is claimed.",
+  "completedScenarios": [],
+  "capturedCases": [],
+  "sdkRequests": 0,
+  "providerHttpBoundaries": 0,
+  "inferenceExecuted": false
+}

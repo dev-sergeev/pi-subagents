@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { AgentToolResult } from "@earendil-works/pi-agent-core";
-import type { AgentBeforeSettleEvent, AgentBeforeSettleEventResult, ExtensionAPI, MessageStartEvent, ToolDefinition } from "@earendil-works/pi-coding-agent";
+import type { AgentEndEvent, ExtensionAPI, ExtensionContext, MessageStartEvent, ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import type { ChildSupervisorMetadata } from "../runs/shared/child-runtime-config.ts";
 import type { ParentWake } from "../shared/parent-wake.ts";
@@ -20,6 +20,7 @@ import {
 	type SupervisorReason,
 	type SupervisorReplyEntryData,
 } from "./supervisor-ui.ts";
+import { ContactSupervisorParamsSchema } from "./supervisor-schema.ts";
 
 const SUPERVISOR_CHANNEL_ROOT = path.join(TEMP_ROOT_DIR, "supervisor-channels");
 const REQUESTS_DIR = "requests";
@@ -81,7 +82,7 @@ interface ContactSupervisorParams {
 interface IntercomParams {
 	action: "list" | "pending" | "status" | "reply";
 	to?: string;
-	message?: string;
+	replyText?: string;
 	replyTo?: string;
 }
 
@@ -98,17 +99,44 @@ interface NativeSupervisorChannelDeps {
 	timers?: Pick<typeof globalThis, "setInterval" | "clearInterval" | "setImmediate" | "clearImmediate">;
 }
 
-const ContactSupervisorParamsSchema = Type.Object({
-	reason: Type.String({ enum: ["need_decision", "interview_request", "progress_update"] }),
-	message: Type.Optional(Type.String()),
-	interview: Type.Optional(Type.Unsafe({ type: "object", additionalProperties: true })),
-}, { additionalProperties: false });
+interface SupervisorLifecycleOwner {
+	agentEnded(event: AgentEndEvent, ctx: ExtensionContext): void;
+	noticeDelivered(event: MessageStartEvent): void;
+	parentRunSettled(): void;
+}
+const supervisorLifecycleSymbol = Symbol.for("pi-subagents.supervisor-lifecycle.v1");
+const lifecycleGlobal = globalThis as typeof globalThis & {
+	[supervisorLifecycleSymbol]?: WeakMap<ExtensionAPI["on"], Set<SupervisorLifecycleOwner>>;
+};
+const supervisorLifecycle = lifecycleGlobal[supervisorLifecycleSymbol]
+	?? (lifecycleGlobal[supervisorLifecycleSymbol] = new WeakMap<ExtensionAPI["on"], Set<SupervisorLifecycleOwner>>());
+
+function supervisorLifecycleOwners(pi: ExtensionAPI): Set<SupervisorLifecycleOwner> {
+	let owners = supervisorLifecycle.get(pi.on);
+	if (!owners) {
+		owners = new Set();
+		supervisorLifecycle.set(pi.on, owners);
+		// Pi 0.85.1 does not unsubscribe extension handlers. Dispatch only to live owners.
+		const liveOwners = owners;
+		pi.on("agent_end", (event, ctx) => {
+			for (const owner of liveOwners) owner.agentEnded(event, ctx);
+		});
+		pi.on("message_start", event => {
+			for (const owner of liveOwners) owner.noticeDelivered(event);
+		});
+		pi.on("agent_settled", () => {
+			for (const owner of liveOwners) owner.parentRunSettled();
+		});
+	}
+	return owners;
+}
 
 const IntercomParamsSchema = Type.Object({
-	action: Type.String({ enum: ["list", "pending", "status", "reply"] }),
-	to: Type.Optional(Type.String()),
-	message: Type.Optional(Type.String()),
-	replyTo: Type.Optional(Type.String()),
+	action: Type.String({ enum: ["list", "pending", "status", "reply"], description: "List pending requests, inspect status, or reply to a request." }),
+	to: Type.Optional(Type.String({ description: "Unique request id prefix, agent or child target; replyTo takes precedence." })),
+	replyTo: Type.Optional(Type.String({ description: "Exact pending request id; omit only with one matching request." })),
+	// Preserve target-before-payload order; the reversed live declaration omitted replyText.
+	replyText: Type.Optional(Type.String({ description: "Reply text; required for reply. Interviews need JSON matching the requested shape." })),
 }, { additionalProperties: false });
 
 function safeSegment(value: string): string {
@@ -571,7 +599,7 @@ function requestVisibleText(request: PendingSupervisorRequest): string {
 }
 
 function writeReply(request: PendingSupervisorRequest, message: string): SupervisorReply {
-	if (!message.trim()) throw new Error("message is required for supervisor replies.");
+	if (!message.trim()) throw new Error("replyText is required for supervisor replies.");
 	const reply: SupervisorReply = {
 		type: "subagent.supervisor.reply",
 		requestId: request.id,
@@ -665,7 +693,7 @@ function buildParentSupervisorTool(pi: ExtensionAPI, pending: Map<string, Pendin
 			}
 			if (input.action === "reply") {
 				const request = resolvePendingRequest(pending, input);
-				const reply = writeReply(request, input.message ?? "");
+				const reply = writeReply(request, input.replyText ?? "");
 				appendSupervisorReplyEntry(pi, request, reply);
 				pending.delete(request.id);
 				onLifecycle(request, "resolved");
@@ -698,11 +726,10 @@ export function createNativeSupervisorChannel(pi: ExtensionAPI, state: SubagentS
 	const pending = new Map<string, PendingSupervisorRequest>();
 	// One continuation and one warning per request; never auto-answer or loop.
 	const settleNotices = new Map<string, "reminded" | "warned" | "handled">();
-	let unsubscribeSettle: (() => void) | undefined;
+	let lifecycleOwners: Set<SupervisorLifecycleOwner> | undefined;
 	// Asks whose notice Pi queued behind a busy parent run. The child's wait counts from its request,
 	// so until the parent's model can see one, its expiresAt keeps moving forward.
 	const queuedNotices = new Set<string>();
-	let unsubscribeDelivery: Array<(() => void) | undefined> | undefined;
 	const requestCorrelations = new Map<string, SupervisorRequestCorrelation>();
 	const correlationKey = (request: { runId: string; agent: string; childIndex: number; toolCallId?: string }): string | undefined => {
 		if (!request.toolCallId) return undefined;
@@ -732,9 +759,8 @@ export function createNativeSupervisorChannel(pi: ExtensionAPI, state: SubagentS
 	};
 	const observeRequestLifecycle: SupervisorRequestLifecycleObserver = (request, lifecycle) => {
 		settleNotices.delete(request.id);
-		if (queuedNotices.delete(request.id)) updateDeliverySubscription();
+		queuedNotices.delete(request.id);
 		if (lifecycle !== "wrong-session") rememberResolvedRequest(request);
-		updateSettleSubscription();
 	};
 	const getSupervisorRequestState = (event: ControlEvent): SupervisorRequestState => {
 		if (event.currentTool === "intercom" || event.index === undefined) return "unknown";
@@ -831,7 +857,6 @@ export function createNativeSupervisorChannel(pi: ExtensionAPI, state: SubagentS
 			rememberPendingRequest(request);
 			pending.set(request.id, request);
 			declareParentTool();
-			updateSettleSubscription();
 			markForegroundSupervisorAttention(request, state);
 			// The ask is already queued above. A sendMessage failure (no UI, stale context) must not
 			// lose it, and must not abort the loop before the remaining asks register.
@@ -857,7 +882,6 @@ export function createNativeSupervisorChannel(pi: ExtensionAPI, state: SubagentS
 				// parentWake returns false when Pi steered the notice into a busy run: the model sees it only at its next turn.
 				if (appended === false && started && pending.has(request.id)) {
 					queuedNotices.add(request.id);
-					updateDeliverySubscription();
 				}
 			} catch (error) {
 				console.error(`Failed to surface supervisor request ${request.id} as a user turn:`, error);
@@ -871,93 +895,80 @@ export function createNativeSupervisorChannel(pi: ExtensionAPI, state: SubagentS
 			if (pending.has(request.id)) markForegroundSupervisorAttention(request, state);
 		}
 		channels?.retire?.();
-		updateSettleSubscription();
 	};
 
-	const handleBeforeSettle = (event: AgentBeforeSettleEvent): AgentBeforeSettleEventResult | undefined => {
-		if (!started || event.outcome !== "completed")
-			return;
+	const handleAgentEnd = (event: AgentEndEvent, ctx: ExtensionContext): void => {
+		if (!started || !pending.size || ctx.signal?.aborted || ctx.hasPendingMessages()) return;
+		const lastAssistant = event.messages.findLast(message => message.role === "assistant");
+		if (!lastAssistant || lastAssistant.stopReason !== "stop") return;
 		refreshPendingRequests(pending, state, observeRequestLifecycle, runState);
-		if (event.continue || event.context.pendingMessages.length)
-			return;
-		const messages = event.context.contextMessages;
+		let needsAttention = false;
+		for (const request of pending.values()) {
+			if (request.expectsReply && settleNotices.get(request.id) !== "warned" && settleNotices.get(request.id) !== "handled") {
+				needsAttention = true;
+				break;
+			}
+		}
+		if (!needsAttention) return;
+		const entries = ctx.sessionManager.buildContextEntries();
 		const requests = [...pending.values()].filter(request => {
 			if (!request.expectsReply || settleNotices.get(request.id) === "warned" || settleNotices.get(request.id) === "handled") return false;
-			const index = messages.findLastIndex(message => message.role === "custom"
-				&& message.customType === SUPERVISOR_REQUEST_MESSAGE_TYPE
-				&& (message.details as { requestId?: string } | undefined)?.requestId === request.id);
-			const acted = index !== -1 && messages.slice(index + 1).some(message => message.role === "assistant"
-				&& message.content.some(part => part.type === "toolCall" || (part.type === "text" && part.text.trim())));
+			const index = entries.findLastIndex(entry => entry.type === "custom_message"
+				&& entry.customType === SUPERVISOR_REQUEST_MESSAGE_TYPE
+				&& (entry.details as { requestId?: string } | undefined)?.requestId === request.id);
+			let acted = false;
+			for (let i = index + 1; index !== -1 && i < entries.length; i++) {
+				const entry = entries[i]!;
+				if (entry.type === "message" && entry.message.role === "assistant"
+					&& entry.message.content.some(part => part.type === "toolCall" || (part.type === "text" && part.text.trim()))) {
+					acted = true;
+					break;
+				}
+			}
 			if (index === -1 || acted) {
 				settleNotices.set(request.id, "handled");
 				return false;
 			}
 			return true;
 		});
-		updateSettleSubscription();
 		if (!requests.length) return;
 		declareParentTool();
 		const unanswered = requests.filter(request => !settleNotices.has(request.id));
 		if (unanswered.length) {
-			for (const request of unanswered)
-				settleNotices.set(request.id, "reminded");
-			return {
-				entries: [...event.entries, {
-					type: "custom_message",
-					customType: "subagent-supervisor-unanswered",
-					content: "Silent supervisor wake. Pending request IDs: " + requests.map(request => request.id).join(", ") + ". Check subagent_supervisor({ action: \"pending\" }) and reply within existing authority, or explicitly ask the user for approval. Do not auto-approve.",
-					display: true,
-					details: { requestIds: requests.map(request => request.id) },
-				}],
-				continue: true,
-			};
+			// The old SDK continues work queued by agent_end before declaring agent_settled.
+			pi.sendMessage({
+				customType: "subagent-supervisor-unanswered",
+				content: "Silent supervisor wake. Pending request IDs: " + requests.map(request => request.id).join(", ") + ". Check subagent_supervisor({ action: \"pending\" }) and reply within existing authority, or explicitly ask the user for approval. Do not auto-approve.",
+				display: true,
+				details: { requestIds: requests.map(request => request.id) },
+			}, { triggerTurn: true, deliverAs: "followUp" });
+			for (const request of unanswered) settleNotices.set(request.id, "reminded");
+			return;
 		}
 		const unflagged = requests.filter(request => settleNotices.get(request.id) !== "warned");
 		if (!unflagged.length)
 			return;
-		for (const request of unflagged)
-			settleNotices.set(request.id, "warned");
-		updateSettleSubscription();
-		return {
-			entries: [...event.entries, {
-				type: "custom_message",
-				customType: "subagent-supervisor-blocked",
-				content: "BLOCKED: unanswered supervisor request IDs: " + unflagged.map(request => request.id).join(", ") + ". Reminder budget exhausted; no reply or approval sent. Inspect subagent_supervisor({ action: \"pending\" }).",
-				display: true,
-				details: { blocked: true, requestIds: unflagged.map(request => request.id) },
-			}],
-		};
-	};
-	const updateSettleSubscription = (): void => {
-		const needed = started && [...pending.values()].some(request => request.expectsReply
-			&& settleNotices.get(request.id) !== "warned" && settleNotices.get(request.id) !== "handled");
-		if (needed && !unsubscribeSettle) unsubscribeSettle = pi.on?.("agent_before_settle", handleBeforeSettle);
-		if (!needed) {
-			unsubscribeSettle?.();
-			unsubscribeSettle = undefined;
-		}
+		pi.sendMessage({
+			customType: "subagent-supervisor-blocked",
+			content: "BLOCKED: unanswered supervisor request IDs: " + unflagged.map(request => request.id).join(", ") + ". Reminder budget exhausted; no reply or approval sent. Inspect subagent_supervisor({ action: \"pending\" }).",
+			display: true,
+			details: { blocked: true, requestIds: unflagged.map(request => request.id) },
+		}, { triggerTurn: false });
+		for (const request of unflagged) settleNotices.set(request.id, "warned");
 	};
 	const noticeDelivered = (event: MessageStartEvent): void => {
+		if (!started) return;
 		const message = event.message;
 		if (message.role !== "custom" || message.customType !== SUPERVISOR_REQUEST_MESSAGE_TYPE) return;
 		const requestId = (message.details as { requestId?: unknown } | undefined)?.requestId;
-		if (typeof requestId === "string" && queuedNotices.delete(requestId)) updateDeliverySubscription();
+		if (typeof requestId === "string") queuedNotices.delete(requestId);
 	};
 	const parentRunSettled = (): void => {
+		if (!started) return;
 		// Pi delivers steered messages before a run settles; one still queued was dropped, so stop extending it.
 		queuedNotices.clear();
-		updateDeliverySubscription();
 	};
-	const updateDeliverySubscription = (): void => {
-		const needed = started && queuedNotices.size > 0;
-		if (needed && !unsubscribeDelivery) {
-			unsubscribeDelivery = [pi.on?.("message_start", noticeDelivered), pi.on?.("agent_settled", parentRunSettled)];
-		}
-		if (!needed) {
-			for (const unsubscribe of unsubscribeDelivery ?? []) unsubscribe?.();
-			unsubscribeDelivery = undefined;
-		}
-	};
+	const lifecycleOwner: SupervisorLifecycleOwner = { agentEnded: handleAgentEnd, noticeDelivered, parentRunSettled };
 	const extendQueuedNotices = (): void => {
 		const now = Date.now();
 		const timeoutMs = askTimeoutMs();
@@ -971,7 +982,6 @@ export function createNativeSupervisorChannel(pi: ExtensionAPI, state: SubagentS
 				request.expiresAt = now + timeoutMs;
 			} catch (error) {
 				queuedNotices.delete(id);
-				updateDeliverySubscription();
 				console.error(`Failed to extend supervisor request ${id} while its notice is queued; it keeps its current deadline:`, error);
 			}
 		}
@@ -1067,6 +1077,8 @@ export function createNativeSupervisorChannel(pi: ExtensionAPI, state: SubagentS
 		start: () => {
 			if (started) return;
 			started = true;
+			lifecycleOwners = supervisorLifecycleOwners(pi);
+			lifecycleOwners.add(lifecycleOwner);
 			registerParentTools();
 			poll();
 			if (deps.getChannelDirs) return; // Child polling starts only after a descendant launch.
@@ -1091,9 +1103,8 @@ export function createNativeSupervisorChannel(pi: ExtensionAPI, state: SubagentS
 		},
 		dispose: () => {
 			started = false;
-			updateSettleSubscription();
+			lifecycleOwners?.delete(lifecycleOwner);
 			queuedNotices.clear();
-			updateDeliverySubscription();
 			try {
 				rootWatcher?.close();
 			} catch {

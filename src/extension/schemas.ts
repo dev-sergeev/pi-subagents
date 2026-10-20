@@ -125,7 +125,7 @@ const WorkflowPreflightOverride = Type.Object({
 	version: Type.Integer({ minimum: 1, maximum: 1 }),
 	coverage: Type.Optional(Type.String({ enum: ["complete", "partial"] })),
 	lanes: Type.Array(WorkflowPreflightLane, { maxItems: 64 }),
-}, { additionalProperties: false, description: "workflow: true or a script path only; display-only hints; coverage warns." });
+}, { additionalProperties: false, description: "workflow: \"true\" or a script path only; display-only hints; coverage warns." });
 
 // Runtime mission handlers validate these untrusted nested objects loudly. Keeping
 // their provider schema shallow avoids repeating a full durable-record schema in
@@ -159,7 +159,7 @@ const SubagentParamProperties = {
 	extensionBindings: Type.Optional(Type.Unsafe({ type: "object", maxProperties: 16, additionalProperties: true, description: "Child-only plain JSON; package.name/1; depth 16, 256 props, 16 KiB." })),
 	// Management action (when present, tool operates in management mode)
 	action: Type.Optional(Type.String({ minLength: 1,
-		description: "Management/control only; omit for execution. validate accepts workflow: true or a script path. Discover actions with {action:\"guide\",options:{topic:\"tool-reference\"}}."
+		description: "Management/control only; omit for execution. validate accepts workflow: \"true\" or a script path. Discover actions with {action:\"guide\",options:{topic:\"tool-reference\"}}."
 	})),
 	capabilities: Type.Optional(Type.Boolean({ description: "list: compact capability rows/details without system prompts." })),
 	name: Type.Optional(Type.String({ description: "schedule.create name." })),
@@ -221,9 +221,9 @@ const SubagentParamProperties = {
 	})),
 	workflow: Type.Optional(Type.Unsafe<string | true>({
 		anyOf: [{ type: "boolean" }, { type: "string", minLength: 1 }],
-		description: "true: run the one ```js workflow block written in this same reply (false invalid). String with '/': script file read from request cwd. Other string: named workflow resource. Raw scripts (true or path) have no runs.host.",
+		description: "\"true\": run the one ```js workflow block in this reply. Path containing '/': script file from request cwd. Other name: workflow resource. Raw scripts have no runs.host.",
 	})),
-	args: Type.Optional(Type.Unsafe({ type: "object", maxProperties: MAX_ARGS_FIELDS, additionalProperties: true, description: `Plain-JSON args for workflow; ${MAX_ARGS_FIELDS} fields/object, ${MAX_ARGS_ITEMS} items/array, depth ${MAX_ARGS_DEPTH}, ${MAX_ARGS_BYTES / 1024} KiB total; raw-script args are exposed deeply frozen and persisted, so do not include secrets.` })),
+	args: Type.Optional(Type.Unsafe({ type: "object", maxProperties: MAX_ARGS_FIELDS, additionalProperties: true, description: `Workflow plain JSON: ${MAX_ARGS_FIELDS} fields/object, ${MAX_ARGS_ITEMS} items/array, depth ${MAX_ARGS_DEPTH}, ${MAX_ARGS_BYTES / 1024} KiB. Raw-script args are deeply frozen and persisted; never include secrets.` })),
 	reuseFrom: Type.Optional(Type.String({ minLength: 1, description: "Exact id of a workflow run stopped by a session handoff or reload; this async workflow reuses its finished children and re-attaches to its running ones." })),
 	globalConcurrencyLimit: Type.Optional(Type.Integer({ minimum: 1 })),
 	maxSubagentSpawnsPerRun: Type.Optional(Type.Integer({ minimum: 1 })),
@@ -260,7 +260,7 @@ const SubagentParamProperties = {
 			{ type: "string" },
 			{ type: "boolean" },
 		],
-		description: "Child output path or false; relative workflow paths use managed artifact routing. Bind durable output here, not task prose; return outputReference/outputPathMapping/artifactPaths.",
+		description: "Child output path; \"false\" disables saving; \"true\" uses configured default; omit to inherit. Relative workflow paths use managed artifact routing. Bind durable output here, not task prose; return outputReference/outputPathMapping/artifactPaths.",
 	})),
 	outputMode: Type.Optional(OutputModeOverride),
 	maxOutput: Type.Optional(Type.Object({ bytes: Type.Optional(Type.Integer({ minimum: 1 })), lines: Type.Optional(Type.Integer({ minimum: 1 })) }, { additionalProperties: false })),
@@ -284,7 +284,7 @@ export const SubagentFlatParams = Type.Object(SubagentParamProperties);
 
 // Management/control fields go inside one opaque `options` object, so they are not sent on every request.
 const { runId: _runId, maxRuntimeMs: _maxRuntimeMs, isolation: _isolation, ...ModelProperties } = SubagentParamProperties;
-const { agent, task, workflow, args, async, model, cwd, worktree, output, action, id, message, ...SubagentOptionProperties } = ModelProperties;
+const { agent, task, workflow: _workflow, args, async, model, cwd, worktree, output: _output, action, id, message, ...SubagentOptionProperties } = ModelProperties;
 
 export const SUBAGENT_OPTION_KEYS: readonly string[] = Object.keys(SubagentOptionProperties);
 
@@ -292,7 +292,11 @@ export const SUBAGENT_OPTION_KEYS: readonly string[] = Object.keys(SubagentOptio
 export const SubagentOptionParams = Type.Object(SubagentOptionProperties, { additionalProperties: false });
 
 const ModelTopLevelProperties = {
-	agent, task, workflow, args, async, model, cwd, worktree, output, action, id, message,
+	agent, task,
+	workflow: Type.Optional(Type.String({ minLength: 1, description: "\"true\": this reply's ```js workflow block; path with '/': script file from cwd; other name: workflow resource. Omit for one child/management." })),
+	args, async, model, cwd, worktree,
+	output: Type.Optional(Type.String({ description: "Save path; \"false\": disable saving; \"true\": configured default; omit: inherit. Relative workflow paths use managed artifacts." })),
+	action, id, message,
 	options: Type.Optional(Type.Unsafe<Record<string, unknown>>({ type: "object", additionalProperties: true, description: "Every field not listed here, such as acceptance, timeoutMs, context, view and index; guide tool-reference/parameter-reference." })),
 };
 

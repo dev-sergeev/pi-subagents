@@ -1,0 +1,18 @@
+{
+  "message": "Official validator authentication prerequisite failed. The complete safe response and submitted function were saved; configure a valid access token. No rules version or success is manufactured.",
+  "evidenceKind": "sdk-only-not-gigachat-acceptance",
+  "providerAcceptance": false,
+  "allFunctionsAccepted": false,
+  "expectedCount": 35,
+  "validatedCount": 1,
+  "results": [
+    {
+      "id": "001-cold-loader-subagents_enable",
+      "scenario": "cold-loader",
+      "name": "subagents_enable",
+      "httpStatus": 401,
+      "json_ai_rules_version": null,
+      "accepted": false
+    }
+  ]
+}

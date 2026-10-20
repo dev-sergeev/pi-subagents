@@ -1,6 +1,31 @@
 # Changelog
 
-## [Unreleased]
+## [0.80.0] - 2026-10-20
+
+### Highlights
+
+- GigaChat compatibility on Pi 0.85.1, without modifying pi-gigachat: 35 final declarations accepted by the official validator and all six real GigaChat-3-Ultra scenarios completed.
+- This fork is distributed as `@dev-sergeev/pi-subagents`. Model-facing workflow/output controls are strings; native supervisor replies use `replyText`.
+
+### Changed
+
+- Publish this Pi 0.85.1 GigaChat fork as `@dev-sergeev/pi-subagents` from `dev-sergeev/pi-subagents`, separate from the upstream npm package. Public package imports and installation commands use the scoped name; tool, skill and coordination protocol names are unchanged.
+
+- Model-facing `subagent.workflow` and `output` now accept strings only, across ordinary, structured-workflow and fanout tools. Use `workflow: "true"` for the current reply block and `output: "false"` / `"true"` for disabled / configured-default saving. Raw boolean model arguments are rejected before Pi's schema coercion; internal execution and configuration forms remain unchanged.
+- Native and Herdr supervisor tools, child command controls and watchdog declarations now describe every immediate parameter explicitly. Herdr uses the same string reason enum and object interview contract as native children.
+- The parent `subagent_supervisor` reply input is now `replyText`, with no `message` alias. The declaration keeps target-before-payload order (`replyTo`, then `replyText`): the reversed live declaration omitted text, while this order completed the real supervisor exchange. The approved cutover preserves text-free `pending`/`status`/`list` calls. Child `contact_supervisor.message` and durable transport records are unchanged.
+- Structured output wrappers describe `value` and `acceptanceReport` without mutating user schemas or weakening their validation. Incompatible recorded system/tool history requires a new session; `/reload` cannot repair it.
+- This GigaChat fork pins the four Pi SDK packages to `0.85.1` and TypeBox to `1.3.7`, matching unmodified `pi-gigachat@0.6.4`. It uses that host's native system prompt/tools, activation persistence and `agent_end` follow-up queue instead of newer transcript sections, declaration pinning or after-settlement continuation APIs. There is no cross-version adapter.
+- Forked children retain supported message history, tool scope and cache-key propagation, but Pi 0.85.1 cannot reproduce newer transcript system/tool cache prefixes. Child instructions and the prompt boundary remain in force.
+
+### Fixed
+
+- Workflow-level disabled output no longer gets replaced by an inherited agent output path in ordinary or structured workflows. Explicit child output overrides retain precedence.
+- The GigaChat evidence CLI recognizes the official rules-1.0.6 missing-optional-field diagnostics by exact schema location and cause, while rejecting unknown warnings. Provider initialization reads the current SDK's nested `AuthResult.auth` and resolves credentials authoritatively instead of rejecting a stale availability snapshot.
+
+### Added
+
+- GigaChat declaration collection, strict official-validator and real-model smoke scripts under `examples/gigachat-compatibility/`. Raw SDK diagnostics, serialized provider functions and authenticated live execution have separate evidence; none substitutes for another.
 
 ## [0.79.1] - 2026-10-17
 

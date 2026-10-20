@@ -69,7 +69,7 @@ describe("default factory queued-message probe", () => {
 			ModelRuntime: { create: async () => ({ registerVirtualModel: (received: unknown) => { events.push(`virtual:${JSON.stringify(received)}`); }, registerProvider: () => { events.push("provider"); }, refresh: async () => { events.push("refresh"); } }) },
 			SettingsManager: { create: () => ({}) },
 			DefaultResourceLoader: class { async reload() {} getExtensions() { return { extensions: [], errors: [], runtime: { pendingProviderRegistrations: [], pendingNativeProviderRegistrations: [], pendingVirtualModelRegistrations: [{ definition, extensionPath: "/tmp/router.ts" }] } }; } },
-			SessionManager: { inMemory: () => ({}) },
+			SessionManager: { inMemory: () => ({ getBranch: () => [] }) },
 			resolveCliModel: () => { events.push("resolve"); return {}; },
 			createAgentSession: async () => ({
 				session: {
@@ -123,7 +123,7 @@ describe("default factory queued-message probe", () => {
 			ModelRuntime: { create: async () => ({ refresh: async () => {} }) },
 			SettingsManager: { create: () => ({}) },
 			DefaultResourceLoader: class { async reload() {} getExtensions() { return { extensions: [], errors: [], runtime: { pendingProviderRegistrations: [], pendingNativeProviderRegistrations: [] } }; } },
-			SessionManager: { inMemory: () => ({}) },
+			SessionManager: { inMemory: () => ({ getBranch: () => [] }) },
 			resolveCliModel: () => ({}),
 			createAgentSession: async () => ({
 				session: {
@@ -149,7 +149,7 @@ describe("default factory queued-message probe", () => {
 				ModelRuntime: { create: async () => ({}) },
 				SettingsManager: { create: () => ({}) },
 				DefaultResourceLoader: class { async reload() {} },
-				SessionManager: { inMemory: () => ({}) },
+				SessionManager: { inMemory: () => ({ getBranch: () => [] }) },
 				resolveCliModel: () => ({}),
 				createAgentSession: async () => ({
 					session: {
@@ -187,7 +187,7 @@ describe("default factory queued-message probe", () => {
 				ModelRuntime: { create: async () => ({}) },
 				SettingsManager: { create: () => ({}) },
 				DefaultResourceLoader: class { async reload() {} },
-				SessionManager: { inMemory: () => ({}) },
+				SessionManager: { inMemory: () => ({ getBranch: () => [] }) },
 				resolveCliModel: () => ({}),
 				createAgentSession: async () => ({
 					session: {
@@ -237,7 +237,7 @@ describe("default factory virtual model selection", () => {
 				ModelRuntime: { create: async () => ({}) },
 				SettingsManager: { create: () => ({}) },
 				DefaultResourceLoader: class { async reload() {} },
-				SessionManager: { inMemory: () => ({}) },
+				SessionManager: { inMemory: () => ({ getBranch: () => [] }) },
 				resolveCliModel: () => ({}),
 				createAgentSession: async () => ({ session }),
 			} as unknown as PiCodingAgentModule),

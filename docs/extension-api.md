@@ -4,7 +4,7 @@ Public seams for other Pi extensions and host integrations: the in-process RPC, 
 
 ## Trusted workflow resources
 
-Loaded trusted TypeScript extensions can import `registerWorkflowResource` from `pi-subagents/workflow-resources`. This subpath does not load the main extension and exposes no resolver or permit constructor. Its exported types are `RegisterWorkflowResourceInput`, `WorkflowResourceDefinition`, and `WorkflowResourceRegistration`:
+Loaded trusted TypeScript extensions can import `registerWorkflowResource` from `@dev-sergeev/pi-subagents/workflow-resources`. This subpath does not load the main extension and exposes no resolver or permit constructor. Its exported types are `RegisterWorkflowResourceInput`, `WorkflowResourceDefinition`, and `WorkflowResourceRegistration`:
 
 ```typescript
 registerWorkflowResource({
@@ -33,7 +33,7 @@ This extension owns two fixed commands; `scripts/finite-check.mjs` must be an ex
 
 ```typescript
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { registerWorkflowResource } from "pi-subagents/workflow-resources";
+import { registerWorkflowResource } from "@dev-sergeev/pi-subagents/workflow-resources";
 
 export default function (pi: ExtensionAPI) {
   let registration: { dispose(): void } | undefined;
@@ -119,7 +119,7 @@ The RPC methods are `ping`, `status`, `manage`, `spawn`, `steer`, `interrupt`, `
 Method notes:
 
 - `manage` exposes a narrow schedule-only allowlist: `schedule.list`, `schedule.show`, `schedule.history`, `schedule.pause`, `schedule.resume`, `schedule.run`, and `schedule.delete`. All actions except `schedule.list` require `id`. Mission, agent, config, worktree, and arbitrary management actions are rejected before executor dispatch. `ping.capabilities.managementActions` advertises the exact allowlist.
-- `spawn` accepts structured single-child execution (`agent`, `task?`), inline script text as `script`, or `workflow` with a script path (containing `/`, such as `"./ci/sweep.js"`) or a named workflow resource. `workflow: true` is rejected because RPC requests have no assistant reply to read a block from; the removed `workflowScript` and `workflowScriptPath` fields are rejected with errors naming `script` and `workflow`. Spawn is async-only: omit `async` or set `async: true`, omit `clarify`, and do not pass management `action` values. Relative script paths resolve against the request `cwd`. It goes through the same executor as the `subagent` tool, so agent discovery, validation, session attribution, configured spawn caps, child-safety depth, artifacts, and async status all behave the same.
+- `spawn` accepts structured single-child execution (`agent`, `task?`), inline script text as `script`, or `workflow` with a script path (containing `/`, such as `"./ci/sweep.js"`) or a named workflow resource. `workflow: "true"` is rejected because RPC requests have no assistant reply to read a block from; the removed `workflowScript` and `workflowScriptPath` fields are rejected with errors naming `script` and `workflow`. Spawn is async-only: omit `async` or set `async: true`, omit `clarify`, and do not pass management `action` values. Relative script paths resolve against the request `cwd`. It goes through the same executor as the `subagent` tool, so agent discovery, validation, session attribution, configured spawn caps, child-safety depth, artifacts, and async status all behave the same.
 - `steer` requires an async run `id` (plus optional child `index`) and a non-empty `message`; its reply preserves the normal acknowledged-delivery result. Optional `mode` values are `steer` (default), `follow_up`, and `auto`, and receipts include `deliveryStatus: "delivered" | "queued"`. RPC steering disables the direct tool's pause-and-revive recovery in every mode so an extension keeps authority over the exact child it spawned; `ping.capabilities.nonRecoveringSteer` advertises this guarantee.
 - `resume` requires a run target and non-empty `message`. It delegates to the existing revival path, which validates current-session ownership, persisted session/recovery metadata, stopped/live state, capability ceilings, and the exclusive session lease before returning the new async run details. Callers may request a `file-only` output path for the revived result without overriding its model, tools, or budgets. `ping.capabilities.resume` advertises this seam.
 - `cost` returns the same parent-plus-child accounting `/subagent-cost` renders, as data: `{ version: 1, parent, children, childTotal, total, unresolvedAsyncChildren }`, where each usage is `{ input, output, cacheRead, cacheWrite, cost, turns }` and each child carries `label`, `agent`, `runId`, `usage`, and `sessionFile` when known. It is read-only and walks the current session branch plus existing run artifacts, so request it on your own turn boundaries (for example after `agent_settled` or an async completion wake), not on a timer. `unresolvedAsyncChildren` counts async children whose metadata could not be read; treat `childTotal` as a lower bound when it is non-zero, exactly as documented for `/subagent-cost` in [observability.md](observability.md). `ping.capabilities.cost` advertises `{ version: 1 }`.
@@ -202,7 +202,7 @@ const registration = request.result.registration;
 // Call registration.dispose() during your extension cleanup.
 ```
 
-If `pi-subagents` is a resolvable dependency of the consumer package, `pi-subagents/agents` exports `RUNTIME_AGENT_REGISTER_EVENT`, the request/result types, and `registerAgentViaEvents()` for the same contract. A separately installed Pi package is not automatically a Node dependency of another package. In that case, use the event contract directly instead of a runtime import. A type-only development dependency is optional.
+If `@dev-sergeev/pi-subagents` is a resolvable dependency of the consumer package, `@dev-sergeev/pi-subagents/agents` exports `RUNTIME_AGENT_REGISTER_EVENT`, the request/result types, and `registerAgentViaEvents()` for the same contract. A separately installed Pi package is not automatically a Node dependency of another package. In that case, use the event contract directly instead of a runtime import. A type-only development dependency is optional.
 
 A registered agent follows the operator's subagent model settings like any other agent: `subagents.defaultModel`, `defaultProvider`, and `defaultThinking` fill a definition that omits `model` or `thinking`, and the `model`, `defaultProvider`, `fast`, and `thinking` fields of `agentOverrides.<name>` win over the definition. Every other definition field stays extension-owned, and other override fields are ignored for runtime agents. Set `model` in the definition only when the agent must not follow operator model settings; `model: "inherit"` selects the parent session model explicitly.
 
@@ -212,14 +212,14 @@ This contract is process-local. It does not register agents in child sessions or
 
 ## External jobs in FleetView
 
-Use `pi-subagents/external-runs` to publish display-only current-session jobs owned by another extension:
+Use `@dev-sergeev/pi-subagents/external-runs` to publish display-only current-session jobs owned by another extension:
 
 ```ts
 import {
   registerExternalRun,
   updateExternalRun,
   unregisterExternalRun,
-} from "pi-subagents/external-runs";
+} from "@dev-sergeev/pi-subagents/external-runs";
 
 registerExternalRun({
   id: "dependency-review",
@@ -248,10 +248,10 @@ External jobs are observational. The caller owns execution, persistence, cancell
 
 ## Launch contract preflight
 
-Use `pi-subagents/preflight` when an extension needs to inspect the resolved child launch contract before deciding whether to run anything:
+Use `@dev-sergeev/pi-subagents/preflight` when an extension needs to inspect the resolved child launch contract before deciding whether to run anything:
 
 ```ts
-import { resolveSubagentLaunchContract } from "pi-subagents/preflight";
+import { resolveSubagentLaunchContract } from "@dev-sergeev/pi-subagents/preflight";
 
 const result = await resolveSubagentLaunchContract({
   agent: "reviewer",
@@ -287,7 +287,7 @@ Preflight covers ordinary single-agent launch resolution:
 Bridge inputs:
 
 - `intercomBridge` replaces the global `intercomBridge` config for this launch, with the same semantics as the `subagent` tool and delegation overrides. Pass the same value to the launch you compare against. Preflight reads the global config from disk on each call while the running extension keeps the config it loaded at startup, so pass the override when the digest must not depend on that file.
-- The default bridge instruction never names the parent session, so most hosts need no further input. When the configured `instructionFile` interpolates `{orchestratorTarget}`, preflight reports a `host_required` diagnostic unless the host supplies a non-empty `orchestratorTarget`; the executor derives that target with `resolveIntercomSessionTarget` from `pi-subagents/intercom-bridge`, given the parent session name and id.
+- The default bridge instruction never names the parent session, so most hosts need no further input. When the configured `instructionFile` interpolates `{orchestratorTarget}`, preflight reports a `host_required` diagnostic unless the host supplies a non-empty `orchestratorTarget`; the executor derives that target with `resolveIntercomSessionTarget` from `@dev-sergeev/pi-subagents/intercom-bridge`, given the parent session name and id.
 
 Boundaries:
 
@@ -307,7 +307,7 @@ import {
   SUBAGENT_DELEGATION_RESPONSE_EVENT,
   type SubagentDelegationRequest,
   type SubagentDelegationResponse,
-} from "pi-subagents/delegation";
+} from "@dev-sergeev/pi-subagents/delegation";
 
 const request: SubagentDelegationRequest = {
   requestId: crypto.randomUUID(),
@@ -366,14 +366,14 @@ Constraints:
 - The caller selects a configured agent, but agent discovery and effective tools remain package-owned. A request cannot grant arbitrary tools, and tool restrictions are not an operating-system sandbox.
 - The detached RPC remains async-only; this API is foreground-only.
 
-Unversioned prompt-template payloads with `requestId`, `agent`, `task`, `context`, `model`, and `cwd` are rejected as legacy direct delegation. New integrations must use the structured owned-leaf request above. `pi-subagents/delegation` is the canonical contract for extension integrations.
+Unversioned prompt-template payloads with `requestId`, `agent`, `task`, `context`, `model`, and `cwd` are rejected as legacy direct delegation. New integrations must use the structured owned-leaf request above. `@dev-sergeev/pi-subagents/delegation` is the canonical contract for extension integrations.
 
 ## Capability ceilings
 
 Parent extensions can enforce an out-of-band, session-scoped capability ceiling without adding a model-visible field to `subagent`:
 
 ```ts
-import { registerSubagentCapabilityCeiling } from "pi-subagents/capability-ceiling";
+import { registerSubagentCapabilityCeiling } from "@dev-sergeev/pi-subagents/capability-ceiling";
 
 const restriction = registerSubagentCapabilityCeiling({
   sessionId: ctx.sessionManager.getSessionId(),
@@ -407,7 +407,7 @@ Schedules created while a ceiling is active are rejected until durable schedule 
 Other Pi extensions can make their current-session jobs visible to `bg_wait` through the process-local provider contract:
 
 ```ts
-import { registerBackgroundWorkProvider } from "pi-subagents/background-work";
+import { registerBackgroundWorkProvider } from "@dev-sergeev/pi-subagents/background-work";
 
 const dispose = registerBackgroundWorkProvider({
   name: "my-background-extension",
@@ -441,7 +441,7 @@ A local foreground child ends the same way, but it runs inside the parent Pi pro
 Extensions that own long-running advisor jobs can register a process-local provider for `runner.type: external-job` agents:
 
 ```ts
-import { registerExternalJobProvider } from "pi-subagents/external-job-provider";
+import { registerExternalJobProvider } from "@dev-sergeev/pi-subagents/external-job-provider";
 
 const dispose = registerExternalJobProvider({
   name: "surf-oracle",
@@ -481,7 +481,7 @@ adds no runner, tool, or configuration option.
 
 ```ts
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import type { InspectorRegistration, InspectorRegistrationRequest } from "pi-subagents/inspectors";
+import type { InspectorRegistration, InspectorRegistrationRequest } from "@dev-sergeev/pi-subagents/inspectors";
 import { myInspector } from "./my-inspector.ts"; // Your InspectorPlugin implementation.
 
 export default function (pi: ExtensionAPI) {
@@ -582,7 +582,7 @@ import {
   getProjectPaneStatus,
   focusProjectPane,
   closeProjectPane,
-} from "pi-subagents/project-panes";
+} from "@dev-sergeev/pi-subagents/project-panes";
 
 const opened = await openProjectPane({ cwd: "/path/to/repo", focus: false });
 const status = await getProjectPaneStatus({ cwd: "/path/to/repo" });

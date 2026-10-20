@@ -1,0 +1,60 @@
+{
+  "name": "watchdog_warn",
+  "description": "Emit one actionable main-session watchdog warning. Set importance explicitly: low or medium for user-only visibility, high only when the parent model must receive the finding. Do not use for nits, praise, informational notes, or clean reviews.",
+  "parameters": {
+    "type": "object",
+    "required": [
+      "severity",
+      "importance",
+      "summary",
+      "evidence",
+      "recommendedAction"
+    ],
+    "properties": {
+      "severity": {
+        "type": "string",
+        "enum": [
+          "concern",
+          "blocker"
+        ],
+        "description": "concern for actionable risk, blocker for a likely wrong or unsafe outcome"
+      },
+      "importance": {
+        "type": "string",
+        "enum": [
+          "low",
+          "medium",
+          "high"
+        ],
+        "description": "low or medium for user-only visibility; high when the parent model must receive the finding"
+      },
+      "summary": {
+        "type": "string",
+        "description": "One concise sentence naming the issue."
+      },
+      "evidence": {
+        "type": "string",
+        "description": "Specific evidence from the turn delta or inspected files."
+      },
+      "recommendedAction": {
+        "type": "string",
+        "description": "Specific action the parent should take before accepting or continuing."
+      },
+      "category": {
+        "type": "string",
+        "enum": [
+          "correctness",
+          "missed-constraint",
+          "test-gap",
+          "unsafe-change",
+          "scope-drift",
+          "stale-fact",
+          "loop-risk",
+          "other"
+        ],
+        "description": "Category of the actionable warning; defaults to other when omitted."
+      }
+    },
+    "additionalProperties": false
+  }
+}

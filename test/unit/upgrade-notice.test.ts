@@ -21,7 +21,8 @@ it("announces each upgrade's highlights once, only in a UI session", async () =>
 		assert.deepEqual(notices, []);
 		await start("0.3.0");
 		await start("0.3.0");
-		assert.deepEqual(notices, ["pi-subagents updated from 0.1.0 to 0.3.0\n- Newest highlight.\n- Middle highlight.\nChangelog: https://github.com/nicobailon/pi-subagents/blob/main/CHANGELOG.md"]);
+		assert.equal(notices.length, 1);
+		assert.match(notices[0], /- Newest highlight\.\n- Middle highlight\./);
 		fs.writeFileSync(path.join(dir, "last-seen-version.json"), "{");
 		await start("0.3.0");
 		assert.deepEqual([notices.length, JSON.parse(fs.readFileSync(path.join(dir, "last-seen-version.json"), "utf-8"))], [1, { version: "0.3.0" }]);

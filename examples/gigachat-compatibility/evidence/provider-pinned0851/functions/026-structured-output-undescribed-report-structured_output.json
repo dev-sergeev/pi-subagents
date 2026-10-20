@@ -1,0 +1,31 @@
+{
+  "name": "structured_output",
+  "description": "Submit the required final structured output for this subagent step. This terminates the step.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "value": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "additionalProperties": false,
+        "description": "The final structured result for this subagent step, matching the requested output schema."
+      },
+      "acceptanceReport": {
+        "type": "object",
+        "description": "Evidence supporting acceptance of this result, including checks performed, observed outcomes, and any remaining limitations."
+      }
+    },
+    "required": [
+      "value",
+      "acceptanceReport"
+    ],
+    "additionalProperties": false
+  }
+}

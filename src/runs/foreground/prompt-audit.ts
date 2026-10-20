@@ -43,14 +43,10 @@ function finalAssistantText(agent: Agent): string {
 	return "";
 }
 
-async function resolveRewriteAuth(ctx: ExtensionContext, model: RegistryModel): Promise<{ apiKey?: string; headers?: ProviderHeaders; env?: Record<string, string> }> {
+async function resolveRewriteAuth(ctx: ExtensionContext, model: RegistryModel): Promise<{ apiKey?: string; headers?: ProviderHeaders; env?: Record<string, string>; baseUrl?: string }> {
 	const auth = await ctx.modelRegistry.getApiKeyAndHeaders(model);
 	if (auth.ok === false) throw new Error(`Prompt redo model auth failed for ${fullModelId(model)}: ${auth.error}`);
-	return {
-		...(auth.apiKey ? { apiKey: auth.apiKey } : {}),
-		...(auth.headers ? { headers: auth.headers } : {}),
-		...(auth.env ? { env: auth.env } : {}),
-	};
+	return { apiKey: auth.apiKey, headers: auth.headers, env: auth.env, baseUrl: auth.baseUrl };
 }
 
 export async function rewritePromptWithGuidance(input: {
@@ -64,14 +60,15 @@ export async function rewritePromptWithGuidance(input: {
 }): Promise<string> {
 	const model = input.ctx.model;
 	if (!model) throw new Error("Prompt redo needs the current session model to rewrite the authored task.");
-	const [{ Agent }, { convertToLlm }] = await Promise.all([
+	const [{ Agent }, { convertToLlm }, { streamRegistryModel }] = await Promise.all([
 		import("@earendil-works/pi-agent-core"),
 		import("@earendil-works/pi-coding-agent"),
+		import("../../shared/registry-stream.ts"),
 	]);
 	const auth = await resolveRewriteAuth(input.ctx, model);
-	const baseStreamFn: StreamFn = input.streamFn ?? ((nextModel, context, streamOptions) => input.ctx.modelRegistry.streamSimple(nextModel, context, streamOptions));
+	const baseStreamFn: StreamFn = input.streamFn ?? ((nextModel, context, streamOptions) => streamRegistryModel(input.ctx.modelRegistry, nextModel, context, streamOptions));
 	const sessionId = input.ctx.sessionManager.getSessionId();
-	const streamFn: StreamFn = (nextModel, context, streamOptions) => baseStreamFn(nextModel, context, {
+	const streamFn: StreamFn = (nextModel, context, streamOptions) => baseStreamFn(auth.baseUrl && auth.baseUrl !== nextModel.baseUrl ? { ...nextModel, baseUrl: auth.baseUrl } : nextModel, context, {
 		...streamOptions,
 		...(auth.apiKey ? { apiKey: auth.apiKey } : {}),
 		env: auth.env || streamOptions?.env ? { ...(auth.env ?? {}), ...(streamOptions?.env ?? {}) } : undefined,

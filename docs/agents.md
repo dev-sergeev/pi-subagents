@@ -359,7 +359,7 @@ Use these fields when an agent should see more:
 
 Builtin agents opt into repository instruction inheritance by default so they follow repo-specific rules out of the box, but global context remains excluded unless `inheritGlobalContext: true` is set. This changes the behavior of existing agents that previously received global context as part of `inheritProjectContext: true`. `delegate` also uses append mode because its job is orchestration inside the parent workflow.
 
-These fields and `systemPromptMode` shape a fresh child's system prompt. A forked child (`context: "fork"`) sends its parent's whole system prompt instead, project context, global context, and skills included, and gets its agent prompt in its task message (see [fork context details](tool-reference.md#fork-context-details)).
+These fields and `systemPromptMode` shape both fresh and forked children's own system prompts. A forked child (`context: "fork"`) inherits the parent's conversation, not its historical system prompt or tool declarations; the child's role, boundary, context filters, and actual tool scope remain authoritative. Pi 0.85.1 cannot guarantee reuse of the parent's prompt prefix (see [fork context details](tool-reference.md#fork-context-details)).
 
 ## Frontmatter reference
 
@@ -615,7 +615,7 @@ Agent-local `skillPath` candidates never enter Pi's parent/global skills catalog
 
 ## The bundled pi-subagents skill
 
-The package bundles a `pi-subagents` skill that is automatically available to the parent agent when the extension is installed. Availability is not automatic routing or permission to delegate: the parent works directly unless the operator requests delegation in the current request or through applicable user/project instructions. Once authorized, use the smallest bounded child or workflow whose evidence, independent review, specialization, parallelism, or isolation benefit earns its overhead. It is for the orchestrating parent only: fresh child subagents never receive it, and a child's own context is filtered to strip parent-only orchestration instructions. A forked child is the exception: it keeps the history, system prompt, and tool declarations it inherited as the parent sent them, so it sees this skill in the parent's skills list and the parent's subagent catalog. It receives its own instructions, including its subagent boundary, in its task message, and its first request reuses the parent's prompt cache (see [fork context details](tool-reference.md#fork-context-details)).
+The package bundles a `pi-subagents` skill that is automatically available to the parent agent when the extension is installed. Availability is not automatic routing or permission to delegate: the parent works directly unless the operator requests delegation in the current request or through applicable user/project instructions. Once authorized, use the smallest bounded child or workflow whose evidence, independent review, specialization, parallelism, or isolation benefit earns its overhead. It is for the orchestrating parent only: the skill is removed from fresh and forked children's own catalogs, and their own context is filtered to strip parent-only orchestration instructions. A fork still retains the parent's conversation and may encounter references to parent skills or agents there; its own role, boundary, and tools are sent in the actual child system prompt, not in a synthetic cache-alignment task block (see [fork context details](tool-reference.md#fork-context-details)).
 
 What it covers:
 

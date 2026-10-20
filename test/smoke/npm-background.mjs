@@ -5,19 +5,17 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
-if (process.platform !== "linux" || process.arch !== "x64") {
-	console.log(`SKIP npm background smoke: requires Linux x64/bubblewrap; ${process.platform}/${process.arch} not validated.`);
-	process.exit(0);
-}
+assert.equal(process.platform, "linux", "npm background smoke requires Linux x64/bubblewrap; other platforms are not validated");
+assert.equal(process.arch, "x64", "npm background smoke requires Linux x64/bubblewrap; other architectures are not validated");
 
 const npmRoot = process.argv[2];
 const root = process.argv[3];
 assert.ok(npmRoot && path.isAbsolute(npmRoot));
 assert.ok(root && path.isAbsolute(root) && !fs.existsSync(root), "fresh artifact root required");
-const installed = path.join(npmRoot, "extension/node_modules/pi-subagents");
+const installed = path.join(npmRoot, "extension", "node_modules", "@dev-sergeev", "pi-subagents");
 const sdk = "host/node_modules/@earendil-works/pi-coding-agent";
 const version = JSON.parse(fs.readFileSync(path.join(npmRoot, sdk, "package.json"), "utf8")).version;
-assert.equal(version, "0.86.1");
+assert.equal(version, "0.85.1");
 for (const name of ["", "tmp", "home", "agent", "work/.pi/agents"]) fs.mkdirSync(path.join(root, name), { recursive: true });
 fs.cpSync(installed, path.join(root, "package"), { recursive: true });
 fs.mkdirSync(path.join(root, "package/test/smoke"), { recursive: true });
@@ -31,6 +29,7 @@ const args = ["--die-with-parent", "--unshare-net", "--unshare-pid", "--ro-bind"
 for (const lib of ["/lib", "/lib64", "/etc/ld.so.cache"]) if (fs.existsSync(lib)) args.push("--ro-bind", lib, lib);
 args.push("--proc", "/proc", "--dev", "/dev", "--bind", root, "/stage", "--bind", path.join(root, "tmp"), "/tmp", "--ro-bind", npmRoot, "/npm-fixture", "--ro-bind", path.join(npmRoot, "extension/node_modules"), "/stage/node_modules", "--chdir", "/stage/work", "--clearenv");
 for (const [key, value] of Object.entries({ PATH: "/stage:/usr/bin:/bin", HOME: "/stage/home", PI_CODING_AGENT_DIR: "/stage/agent", PI_OFFLINE: "1", JITI_FS_CACHE: "false", JITI_ALIAS: JSON.stringify(mapped), TERM: "dumb", PI_STANDALONE_SMOKE_MODE: "single" })) args.push("--setenv", key, value);
+// Use the host's unbundled CLI so the parent and detached runner share the same modular SDK.
 args.push("--", "/stage/node", "--import", "/stage/package/runner-peer-preload.mjs", `/npm-fixture/${sdk}/dist/cli.js`, "--no-extensions", "--no-skills", "--no-prompt-templates", "--no-session", "--mode", "rpc", "--extension", "/stage/package/test/smoke/standalone-provider.ts", "--extension", "/stage/package/test/smoke/standalone-parent.ts");
 const result = spawnSync("bwrap", args, { encoding: "utf8", timeout: 90000, maxBuffer: 10 * 1024 * 1024 });
 fs.writeFileSync(path.join(root, "parent.log"), `${result.stdout ?? ""}${result.stderr ?? ""}`);

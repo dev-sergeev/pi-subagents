@@ -332,7 +332,7 @@ describe("createForkContextResolver", () => {
 		}
 	});
 
-	it("keeps verbatim signed Anthropic thinking blocks so the fork reuses the parent's prompt cache", () => {
+	it("keeps verbatim signed Anthropic thinking blocks without invalidating their signatures", () => {
 		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-fork-thinking-"));
 		try {
 			const parentSessionFile = path.join(tempDir, "parent.jsonl");

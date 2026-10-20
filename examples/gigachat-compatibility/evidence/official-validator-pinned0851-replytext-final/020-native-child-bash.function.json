@@ -1,0 +1,26 @@
+{
+  "name": "bash",
+  "description": "Execute a bash command in the current working directory. Returns stdout and stderr. Output is truncated to last 2000 lines or 50KB (whichever is hit first). If truncated, full output is saved to a temp file. Optionally provide a timeout in seconds.\nOptional yieldTimeMs returns a command handle without stopping execution. Use subagent_command to query or cancel it. Finish or cancel every command before completing the task.",
+  "parameters": {
+    "type": "object",
+    "required": [
+      "command"
+    ],
+    "properties": {
+      "command": {
+        "type": "string",
+        "description": "Shell command to execute"
+      },
+      "timeout": {
+        "type": "number",
+        "description": "Timeout in seconds (optional, no default timeout)"
+      },
+      "yieldTimeMs": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 30000,
+        "description": "Return a managed command handle after this wait; does not terminate the command. Omit to wait for completion."
+      }
+    }
+  }
+}

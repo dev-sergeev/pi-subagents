@@ -170,7 +170,11 @@ export function createChildCommandRuntime(channelDir: string) {
 			return {
 				name: CHILD_COMMAND_TOOL, label: "Child command",
 				description: "Inspect or cancel bash commands owned by this child. Cancellation stops only the selected command, not the agent. Check terminal state before finishing.",
-				parameters: Type.Object({ action: Type.String({ enum: ["status", "cancel"] }), toolCallId: Type.Optional(Type.String()), waitMs: Type.Optional(Type.Integer({ minimum: 0, maximum: 30_000 })) }),
+				parameters: Type.Object({
+					action: Type.String({ enum: ["status", "cancel"], description: "Inspect retained bash command state or request cancellation of one exact command without stopping the child agent." }),
+					toolCallId: Type.Optional(Type.String({ description: "Exact retained bash tool-call ID. Required for cancel; omit for status to list this child's retained commands." })),
+					waitMs: Type.Optional(Type.Integer({ minimum: 0, maximum: 30_000, description: "Wait up to this many milliseconds for the selected command to settle before returning its state; defaults to zero and does not stop the command." })),
+				}),
 				async execute(_id, params, signal) {
 					const { action, toolCallId, waitMs = 0 } = params as { action: "status" | "cancel"; toolCallId?: string; waitMs?: number };
 					operate(action, toolCallId);

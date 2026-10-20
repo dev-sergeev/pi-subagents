@@ -22,8 +22,13 @@ const script = String.raw`
 	const events = createEventBus();
 	const pi = new Proxy({
 		events,
+		activeTools: [],
+		registeredTools: [],
+		getAllTools() { return this.registeredTools; },
+		getActiveTools() { return this.activeTools; },
+		setActiveTools(tools) { this.activeTools = tools; },
 		on(name, handler) { const list = handlers.get(name) ?? []; list.push(handler); handlers.set(name, list); },
-		registerTool() {}, registerCommand() {}, registerShortcut() {}, registerMessageRenderer() {}, getSessionName() {},
+		registerTool(tool) { this.registeredTools.push(tool); }, registerCommand() {}, registerShortcut() {}, registerMessageRenderer() {}, getSessionName() {},
 		sendMessage(message, options) { sent.push({ message, options }); },
 	}, { get(target, property) { return property in target ? target[property] : () => undefined; } });
 	const ctx = {
@@ -33,6 +38,7 @@ const script = String.raw`
 			getSessionId() { return "agent-end-drain-session"; },
 			getSessionFile() { return null; },
 			getEntries() { return []; },
+			getBranch() { return this.getEntries(); },
 		},
 		modelRegistry: { getAvailable() { return []; } },
 	};

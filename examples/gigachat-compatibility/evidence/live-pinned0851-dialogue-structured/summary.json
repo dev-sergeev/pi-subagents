@@ -1,0 +1,38 @@
+{
+  "format": 1,
+  "evidenceKind": "pi-gigachat-real-model-smoke",
+  "model": "gigachat-compatibility/GigaChat-3-Ultra",
+  "startedAt": "2026-10-20T06:08:38.067Z",
+  "selectedScenarios": [
+    "supervisor",
+    "structured-output"
+  ],
+  "providerRetries": "8",
+  "complete": true,
+  "passed": false,
+  "cases": [
+    {
+      "name": "supervisor",
+      "passed": false,
+      "evidence": "supervisor.json",
+      "failure": "Scenario exceeded its ten-minute wall-clock deadline and was aborted."
+    },
+    {
+      "name": "structured-output",
+      "passed": true,
+      "evidence": "structured-output.json",
+      "facts": {
+        "activation": true,
+        "childRead": true,
+        "childCompleted": true,
+        "nonceInFinalParentAnswer": true,
+        "nonceInProviderDeliveredResult": true,
+        "publicStringOutputAndFreshOptions": true,
+        "foregroundSingleLaunch": true,
+        "configuredStructuredProfile": true,
+        "validatedChildStructuredCapture": true
+      }
+    }
+  ],
+  "completedAt": "2026-10-20T06:18:45.319Z"
+}

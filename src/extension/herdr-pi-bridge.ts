@@ -2,7 +2,8 @@ import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as net from "node:net";
 import * as path from "node:path";
-import { Type } from "typebox";
+import { ContactSupervisorParamsSchema } from "../intercom/supervisor-schema.ts";
+import { registerSessionHistoryGuard } from "./session-history-guard.ts";
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import packageJson from "../../package.json" with { type: "json" };
@@ -49,6 +50,7 @@ export default function registerHerdrPiBridge(pi: ExtensionAPI): void {
 	const runId = validateHerdrPiRunId(process.env[HERDR_PI_RUN_ENV]);
 	const runDir = process.env[HERDR_PI_RUNTIME_DIR_ENV];
 	if (!runDir || !path.isAbsolute(runDir) || fs.lstatSync(runDir).isSymbolicLink()) throw new Error("Herdr bridge runtime directory was not authoritatively provisioned.");
+	registerSessionHistoryGuard(pi);
 	fs.chmodSync(runDir, 0o700);
 	const socketPath = path.join(runDir, "bridge.sock");
 	const manifestPath = path.join(runDir, "manifest.json");
@@ -79,12 +81,12 @@ export default function registerHerdrPiBridge(pi: ExtensionAPI): void {
 		...MODEL_ONLY_TOOL,
 		label: "Contact supervisor",
 		description: "Contact the parent/supervisor session for a blocking decision, structured interview, or progress update.",
-		parameters: Type.Object({ reason: Type.Union([Type.Literal("need_decision"), Type.Literal("interview_request"), Type.Literal("progress_update")]), message: Type.Optional(Type.String({ maxLength: 65_536 })), interview: Type.Optional(Type.Unknown()) }, { additionalProperties: false }),
-		execute: async (_toolCallId, input: { reason: "need_decision" | "interview_request" | "progress_update"; message?: string; interview?: unknown }) => {
+		parameters: ContactSupervisorParamsSchema,
+		execute: async (_toolCallId, input: { reason: string; message?: string; interview?: unknown }) => {
 			if (input.reason !== "interview_request" && !input.message?.trim()) throw new Error("message is required for supervisor decisions and progress updates.");
 			const id = `sup_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 			send({ type: "supervisor-request", requestId: id, reason: input.reason, message: input.message?.slice(0, 65_536) ?? "", ...(input.interview !== undefined ? { interview: input.interview } : {}), expectsReply: input.reason !== "progress_update", nativeSessionId });
-			if (input.reason === "progress_update") { await new Promise<string>((resolve) => supervisor.set(id, { reason: input.reason, resolve })); return { content: [{ type: "text", text: "Supervisor progress update queued." }], details: { delivered: true, requestId: id, reason: input.reason } }; }
+			if (input.reason === "progress_update") { await new Promise<string>((resolve) => supervisor.set(id, { reason: "progress_update", resolve })); return { content: [{ type: "text", text: "Supervisor progress update queued." }], details: { delivered: true, requestId: id, reason: input.reason } }; }
 			const reason = input.reason as "need_decision" | "interview_request"; const answer = await new Promise<string>((resolve) => supervisor.set(id, { reason, resolve })); const details: Record<string, unknown> = { requestId: id, reason }; if (reason === "interview_request") try { details.structuredReply = JSON.parse(answer.replace(/^```(?:json)?\s*|\s*```$/giu, "")); } catch { details.structuredReplyParseError = "Supervisor interview reply was not valid JSON."; }
 			return { content: [{ type: "text", text: `**Reply from supervisor:**\n${answer}` }], details };
 		},

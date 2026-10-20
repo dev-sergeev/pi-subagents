@@ -57,8 +57,13 @@ const terminalBeforePublicationScript = String.raw`
 	let onSend;
 	const pi = new Proxy({
 		events,
+		activeTools: [],
+		registeredTools: [],
+		getAllTools() { return this.registeredTools; },
+		getActiveTools() { return this.activeTools; },
+		setActiveTools(tools) { this.activeTools = tools; },
 		on(name, handler) { handlers.set(name, [...(handlers.get(name) ?? []), handler]); return () => {}; },
-		registerTool() {}, registerCommand() {}, registerShortcut() {}, registerMessageRenderer() {}, getSessionName() {},
+		registerTool(tool) { this.registeredTools.push(tool); }, registerCommand() {}, registerShortcut() {}, registerMessageRenderer() {}, getSessionName() {},
 		sendMessage(message, options) {
 			if (message.customType !== "subagent-notify") return;
 			const rejected = rejectNextSend;
@@ -75,7 +80,7 @@ const terminalBeforePublicationScript = String.raw`
 	const ctx = {
 		cwd: process.cwd(), hasUI: false, model: undefined, isIdle() { return false; },
 		ui: { setWidget() {}, requestRender() {}, theme: { fg(_name, text) { return text; }, bg(_name, text) { return text; }, bold(text) { return text; } } },
-		sessionManager: { getSessionId() { return sessionId; }, getSessionFile() { return null; }, getEntries() { return []; } },
+		sessionManager: { getSessionId() { return sessionId; }, getSessionFile() { return null; }, getEntries() { return []; }, getBranch() { return this.getEntries(); } },
 		modelRegistry: { getAvailable() { return []; } },
 	};
 	const nextSend = () => new Promise((resolve, reject) => {
@@ -198,11 +203,17 @@ describe("session liveness through result delivery", () => {
 			id, runId: id, sessionId, completionOwnerId: currentCompletionOwnerId(), success: false, summary: `${id} needs the parent`,
 		});
 		const activeAt: Record<string, boolean | undefined> = {};
+		const settledWake = Promise.withResolvers<void>();
+		const deliveredWake = Promise.withResolvers<void>();
+		let deliveredContext = "";
 		const faux = fauxProvider({ provider: "session-liveness", models: [{ id: "local" }], tokensPerSecond: 100_000 });
 		faux.setResponses([
 			() => fauxAssistantMessage("First reply."),
-			() => fauxAssistantMessage("Second reply."),
-			() => fauxAssistantMessage("Third reply."),
+			(context) => {
+				deliveredContext = JSON.stringify(context.messages);
+				deliveredWake.resolve();
+				return fauxAssistantMessage("Third reply.");
+			},
 		]);
 		const settingsManager = SettingsManager.inMemory({});
 		const resourceLoader = new DefaultResourceLoader({
@@ -220,6 +231,7 @@ describe("session liveness through result delivery", () => {
 					api.on("agent_settled", () => {
 						if ("atSettle" in activeAt) {
 							activeAt.finalSettle = provider?.isActive();
+							settledWake.resolve();
 							return;
 						}
 						complete(api, "at-settle");
@@ -235,8 +247,14 @@ describe("session liveness through result delivery", () => {
 			({ session } = await createAgentSession({ cwd: root, agentDir, settingsManager, resourceLoader, modelRuntime, model: faux.getModel("local"), sessionManager, noTools: "builtin" }));
 			await session.bindExtensions({});
 			await session.prompt("Start the original turn.");
-			assert.deepEqual(activeAt, { duringTurn: true, atSettle: true, finalSettle: false });
-			assert.equal(session.messages.filter((message) => message.role === "custom" && message.customType === "subagent-notify").length, 2, "Pi started both queued wakes");
+			await settledWake.promise;
+			await deliveredWake.promise;
+			await session.waitForIdle();
+			assert.equal(activeAt.duringTurn, true, "a completion queued during the turn stays live");
+			assert.equal(activeAt.atSettle, true, "the idle completion wake stays live before its run starts");
+			assert.equal(activeAt.finalSettle, false, "the started wake releases liveness");
+			assert.match(deliveredContext, /during-turn needs the parent/);
+			assert.match(deliveredContext, /at-settle needs the parent/);
 			await (session.extensionRunner as unknown as { emit(event: unknown): Promise<unknown> }).emit({ type: "session_shutdown", reason: "quit" });
 		} finally {
 			session?.dispose();
@@ -268,39 +286,35 @@ describe("session liveness through result delivery", () => {
 		};
 		const sessionManager = SessionManager.inMemory(root);
 		const sessionId = sessionManager.getSessionId();
+		let deliveredContext = "";
 		const faux = fauxProvider({ provider: "liveness-reload", models: [{ id: "local" }], tokensPerSecond: 100_000 });
 		faux.setResponses([
 			() => fauxAssistantMessage("Yielded original turn."),
-			() => fauxAssistantMessage("Processed completion after reload."),
+			(context) => {
+				deliveredContext = JSON.stringify(context.messages);
+				return fauxAssistantMessage("Processed completion after reload.");
+			},
 		]);
 		let session: Awaited<ReturnType<typeof createAgentSession>>["session"] | undefined;
-		let reloaded = false;
-		// Hook errors after reload never reach onError, so record observations and assert after the prompt.
-		let observed: Record<string, unknown> | undefined;
+		let extensionApi: Parameters<typeof registerSubagentExtension>[0] | undefined;
+		const wakeEntered = Promise.withResolvers<void>();
+		const releaseWake = Promise.withResolvers<void>();
+		const wakeSettled = Promise.withResolvers<void>();
+		let holdWake = true;
 		const settingsManager = SettingsManager.inMemory({});
 		const errors: unknown[] = [];
 		const resourceLoader = new DefaultResourceLoader({
 			cwd: root, agentDir, settingsManager,
 			noExtensions: true, noSkills: true, noPromptTemplates: true, noThemes: true, noContextFiles: true,
 			extensionFactories: [registerSubagentExtension, (api) => {
+				extensionApi = api;
 				api.registerProvider(faux.provider);
-				api.on("agent_settled", async () => {
-					if (reloaded) return;
-					reloaded = true;
-					api.events.emit(SUBAGENT_ASYNC_COMPLETE_EVENT, {
-						id: "reload-wake", sessionId, completionOwnerId: currentCompletionOwnerId(),
-						success: false, summary: "Review requires the parent.",
-					});
-					const activeBeforeReload = provider?.isActive();
-					await session!.reload();
-					observed = {
-						activeBeforeReload,
-						registrations,
-						isIdle: session!.isIdle,
-						pendingMessageCount: session!.pendingMessageCount,
-						noticeAppended: session!.messages.some((message) => message.role === "custom" && message.customType === "subagent-notify"),
-						activeAfterReload: provider?.isActive(),
-					};
+				api.on("input", async (event) => {
+					if (event.source === "extension" && holdWake) {
+						wakeEntered.resolve();
+						await releaseWake.promise;
+					}
+					return { action: "continue" };
 				});
 			}],
 		});
@@ -312,18 +326,32 @@ describe("session liveness through result delivery", () => {
 			// to exercise the real reload lifecycle.
 			await session.bindExtensions({ onError: (error) => { errors.push(error); } });
 			await session.prompt("Yield with a completion pending.");
-			assert.equal(reloaded, true);
-			assert.deepEqual(errors, []);
-			assert.deepEqual(observed, {
-				activeBeforeReload: true,
-				registrations: 2, // reload actually bound the replacement producer
-				isIdle: true,
-				pendingMessageCount: 0, // Pi's deferred settled action is not counted as a pending message
-				noticeAppended: true, // the idle parent gets the notice now and a prompt that wakes it
-				activeAfterReload: true, // the retained wake prompt owns liveness until its deferred run starts
+			const unsubscribe = session.subscribe((event) => {
+				if (event.type === "agent_settled") wakeSettled.resolve();
 			});
-			assert.equal(provider?.isActive(), false, "the woken run releases the retained wake");
-			assert.equal(session.getLastAssistantText(), "Processed completion after reload.");
+			try {
+				extensionApi!.events.emit(SUBAGENT_ASYNC_COMPLETE_EVENT, {
+					id: "reload-wake", sessionId, completionOwnerId: currentCompletionOwnerId(),
+					success: false, summary: "Review requires the parent.",
+				});
+				await wakeEntered.promise;
+				assert.equal(provider?.isActive(), true, "the idle completion reserves its pending wake");
+				// Hold at input preflight, before before_agent_start captures a runner context.
+				// Reloading from inside agent_settled invalidates that in-flight context on 0.85.1.
+				await session.reload();
+				assert.equal(registrations, 2, "reload binds the replacement liveness producer");
+				assert.equal(provider?.isActive(), true, "reload preserves the wake reservation");
+				holdWake = false;
+				releaseWake.resolve();
+				await wakeSettled.promise;
+				assert.deepEqual(errors, []);
+				assert.equal(provider?.isActive(), false, "the woken run releases the retained wake");
+				assert.equal(session.getLastAssistantText(), "Processed completion after reload.");
+				assert.match(deliveredContext, /Review requires the parent/, "the retained completion reaches the reloaded parent's model context");
+			} finally {
+				releaseWake.resolve();
+				unsubscribe();
+			}
 		} finally {
 			if (session) await (session.extensionRunner as unknown as { emit(event: unknown): Promise<unknown> }).emit({ type: "session_shutdown", reason: "quit" });
 			session?.dispose();

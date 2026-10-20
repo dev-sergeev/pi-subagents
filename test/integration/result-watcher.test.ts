@@ -696,6 +696,7 @@ describe("result watcher", () => {
 			state.currentSessionId = "session-current";
 			const pi = {
 				events: { on: () => () => {}, emit(event: string) { if (event === SUBAGENT_ASYNC_COMPLETE_EVENT) observations += 1; } },
+				on() {},
 				isHeld: () => false,
 				sendMessage(message: { content?: string }) { sent.push(message.content ?? ""); },
 			};

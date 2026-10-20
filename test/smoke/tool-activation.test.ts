@@ -7,8 +7,7 @@ import {
 	fauxAssistantMessage,
 	fauxProvider,
 	fauxToolCall,
-	getCurrentSystemPrompt,
-	getCurrentTools,
+	type Tool,
 	type FauxResponseFactory,
 	type FauxResponseStep,
 } from "@earendil-works/pi-ai";
@@ -17,21 +16,21 @@ import {
 	ModelRuntime,
 	SessionManager,
 	SettingsManager,
-	createAgentSession,
+	createAgentSession, type AgentSession,
 } from "@earendil-works/pi-coding-agent";
 import { createSubagentParamsSchema } from "../../src/extension/schemas.ts";
 
 const packageToolNames = new Set(["subagents_enable", "bg_wait", "subagent_supervisor", "subagent"]);
 
-function serializedCharacters(tools: ReturnType<typeof getCurrentTools>): number {
+function serializedCharacters(tools: Tool[]): number {
 	return tools.filter((tool) => packageToolNames.has(tool.name)).reduce((total, tool) => total + JSON.stringify(tool).length, 0);
 }
 
-function perToolSizes(tools: ReturnType<typeof getCurrentTools>): string {
+function perToolSizes(tools: Tool[]): string {
 	return tools.filter((tool) => packageToolNames.has(tool.name)).map((tool) => `${tool.name}=${JSON.stringify(tool).length}`).join(", ");
 }
 
-async function runNativeSession(config: Record<string, unknown> | undefined, responses: FauxResponseStep[], prompts: string[]): Promise<void> {
+async function runNativeSession(config: Record<string, unknown> | undefined, responses: FauxResponseStep[], prompts: string[], resumeBetweenPrompts = false): Promise<void> {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-tool-activation-"));
 	const cwd = path.join(root, "project");
 	const agentDir = path.join(root, "agent");
@@ -45,7 +44,7 @@ async function runNativeSession(config: Record<string, unknown> | undefined, res
 	const priorChild = process.env.PI_SUBAGENT_CHILD;
 	process.env.PI_CODING_AGENT_DIR = agentDir;
 	delete process.env.PI_SUBAGENT_CHILD;
-	let session: Awaited<ReturnType<typeof createAgentSession>>["session"] | undefined;
+	let session: AgentSession | undefined;
 	try {
 		const { default: registerSubagentExtension } = await import(`../../index.ts?native-activation=${Date.now()}`);
 		const faux = fauxProvider({ provider: "tool-activation", models: [{ id: "local" }], tokensPerSecond: 100_000 });
@@ -63,10 +62,23 @@ async function runNativeSession(config: Record<string, unknown> | undefined, res
 			model: faux.getModel("local"), sessionManager: SessionManager.inMemory(cwd), noTools: "builtin",
 		}));
 		await session.bindExtensions({});
-		for (const prompt of prompts) await session.prompt(prompt);
+		for (const [index, prompt] of prompts.entries()) {
+			if (index > 0 && resumeBetweenPrompts) {
+				const manager = SessionManager.inMemory(cwd, undefined, structuredClone(session.sessionManager.getEntries()));
+				await session.extensionRunner.emit({ type: "session_shutdown", reason: "quit" });
+				session.dispose();
+				await resourceLoader.reload();
+				({ session } = await createAgentSession({
+					cwd, agentDir, settingsManager, resourceLoader, modelRuntime,
+					model: faux.getModel("local"), sessionManager: manager, noTools: "builtin",
+				}));
+				await session.bindExtensions({});
+			}
+			await session.prompt(prompt);
+		}
 	} finally {
 		if (session) {
-			await (session.extensionRunner as any).emit({ type: "session_shutdown", reason: "quit" });
+			await session.extensionRunner.emit({ type: "session_shutdown", reason: "quit" });
 			session.dispose();
 		}
 		if (priorAgentDir === undefined) delete process.env.PI_CODING_AGENT_DIR; else process.env.PI_CODING_AGENT_DIR = priorAgentDir;
@@ -80,8 +92,8 @@ test("native Pi exposes the full subagent schema on the request immediately afte
 	const sizes: string[] = [];
 	await runNativeSession({ toolActivation: "dynamic" }, [
 		(context) => {
-			const tools = getCurrentTools(context.messages);
-			const systemPrompt = getCurrentSystemPrompt(context.messages);
+			const tools = context.tools ?? [];
+			const systemPrompt = context.systemPrompt ?? "";
 			assert.match(systemPrompt, /pi-subagents is installed/i);
 			assert.match(systemPrompt, /complexity alone is not authorization/i);
 			captured.push(serializedCharacters(tools));
@@ -97,12 +109,9 @@ test("native Pi exposes the full subagent schema on the request immediately afte
 			return fauxAssistantMessage(fauxToolCall("subagents_enable", {}), { stopReason: "toolUse" });
 		},
 		(context) => {
-			const tools = getCurrentTools(context.messages);
+			const tools = context.tools ?? [];
 			captured.push(serializedCharacters(tools));
 			sizes.push(perToolSizes(tools));
-			// Replay on resume relies on the first declared tool set recording the loader.
-			const firstDeclared = context.messages.find((message) => message.role === "system" && message.toolsAdded?.length);
-			assert.ok(firstDeclared?.role === "system" && firstDeclared.toolsAdded?.some((tool) => tool.name === "subagents_enable"));
 			const subagent = tools.find((tool) => tool.name === "subagent");
 			assert.ok(subagent);
 			assert.ok(tools.some((tool) => tool.name === "subagent_supervisor"));
@@ -120,13 +129,10 @@ test("native Pi exposes the full subagent schema on the request immediately afte
 	console.log(`package tool characters cold=${captured[0]} (${sizes[0]}) activated=${captured[1]} (${sizes[1]})`);
 });
 
-test("native Pi starts auto sessions with subagent and no loader when the model cannot add tools", { timeout: 30_000 }, async () => {
-	// The faux model sets no compat flags.
+test("native Pi starts auto sessions eagerly on the pinned host", { timeout: 30_000 }, async () => {
 	const requests: string[][] = [];
 	const record: FauxResponseFactory = (context) => {
-		// One tool declaration across both prompts: the tool list never changed.
-		assert.equal(context.messages.filter((message) => message.role === "system" && (message.toolsAdded?.length || message.toolsRemoved?.length)).length, 1);
-		requests.push(getCurrentTools(context.messages).map((tool) => tool.name));
+		requests.push((context.tools ?? []).map((tool) => tool.name));
 		return fauxAssistantMessage("ok");
 	};
 	await runNativeSession(undefined, [record, record], ["First prompt.", "Second prompt."]);
@@ -134,4 +140,43 @@ test("native Pi starts auto sessions with subagent and no loader when the model 
 	assert.equal(requests.length, 2);
 	assert.ok(requests[0]!.includes("subagent") && requests[0]!.includes("bg_wait"));
 	assert.equal(requests[0]!.includes("subagents_enable"), false);
+});
+
+test("native Pi rejects boolean workflow/output before schema coercion in both workflow surfaces", { timeout: 30_000 }, async () => {
+	for (const disabledFeatures of [[], ["workflow-scripts"]]) {
+		await runNativeSession({ toolActivation: "eager", disabledFeatures }, [
+			() => fauxAssistantMessage(fauxToolCall("subagent", { workflow: true }), { stopReason: "toolUse" }),
+			(context) => {
+				const result = context.messages.findLast((message) => message.role === "toolResult" && message.toolName === "subagent");
+				assert.ok(result?.role === "toolResult" && result.isError);
+				assert.match(JSON.stringify(result.content), /workflow must be a string/);
+				return fauxAssistantMessage(fauxToolCall("subagent", { agent: "worker", output: false }), { stopReason: "toolUse" });
+			},
+			(context) => {
+				const result = context.messages.findLast((message) => message.role === "toolResult" && message.toolName === "subagent");
+				assert.ok(result?.role === "toolResult" && result.isError);
+				assert.match(JSON.stringify(result.content), /output must be a string/);
+				return fauxAssistantMessage("Invalid forms rejected without launching a child.");
+			},
+		], ["Exercise malformed model arguments without delegation."]);
+	}
+});
+
+test("native Pi resumes warm and cold branch activation using current schemas", { timeout: 30_000 }, async () => {
+	const warm: FauxResponseFactory = (context) => {
+		const subagent = context.tools?.find((tool) => tool.name === "subagent");
+		assert.ok(subagent);
+		assert.deepEqual(subagent.parameters, createSubagentParamsSchema());
+		return fauxAssistantMessage("Current definitions after activation/resume.");
+	};
+	await runNativeSession({ toolActivation: "dynamic" }, [
+		() => fauxAssistantMessage(fauxToolCall("subagents_enable", {}), { stopReason: "toolUse" }),
+		warm, warm,
+	], ["Enable authorized tools.", "Resume warm."], true);
+	const cold: FauxResponseFactory = (context) => {
+		assert.ok(context.tools?.some((tool) => tool.name === "subagents_enable"));
+		assert.equal(context.tools?.some((tool) => tool.name === "subagent"), false);
+		return fauxAssistantMessage("Still cold.");
+	};
+	await runNativeSession({ toolActivation: "dynamic" }, [cold, cold], ["Do not delegate.", "Resume cold."], true);
 });

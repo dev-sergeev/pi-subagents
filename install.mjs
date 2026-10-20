@@ -4,8 +4,8 @@
  * pi-subagents installer
  * 
  * Usage:
- *   npx pi-subagents          # Install to ~/.pi/agent/extensions/subagent
- *   npx pi-subagents --remove # Remove the extension
+ *   npx @dev-sergeev/pi-subagents          # Install to ~/.pi/agent/extensions/subagent
+ *   npx @dev-sergeev/pi-subagents --remove # Remove the extension
  */
 
 import { execSync } from "node:child_process";
@@ -14,7 +14,7 @@ import * as path from "node:path";
 import * as os from "node:os";
 
 const EXTENSION_DIR = path.join(os.homedir(), ".pi", "agent", "extensions", "subagent");
-const REPO_URL = "https://github.com/nicobailon/pi-subagents.git";
+const REPO_URL = "https://github.com/dev-sergeev/pi-subagents.git";
 
 const args = process.argv.slice(2);
 const isRemove = args.includes("--remove") || args.includes("-r");
@@ -25,9 +25,9 @@ if (isHelp) {
 pi-subagents - Pi extension for delegating tasks to subagents
 
 Usage:
-  npx pi-subagents          Install the extension
-  npx pi-subagents --remove Remove the extension
-  npx pi-subagents --help   Show this help
+  npx @dev-sergeev/pi-subagents          Install the extension
+  npx @dev-sergeev/pi-subagents --remove Remove the extension
+  npx @dev-sergeev/pi-subagents --help   Show this help
 
 Installation directory: ${EXTENSION_DIR}
 `);
@@ -64,12 +64,12 @@ if (fs.existsSync(EXTENSION_DIR)) {
 			console.log("\npi-subagents updated");
 		} catch (err) {
 			console.error("Failed to update. Try removing and reinstalling:");
-			console.error("  npx pi-subagents --remove && npx pi-subagents");
+			console.error("  npx @dev-sergeev/pi-subagents --remove && npx @dev-sergeev/pi-subagents");
 			process.exit(1);
 		}
 	} else {
 		console.log(`Directory exists but is not a git repo: ${EXTENSION_DIR}`);
-		console.log("Remove it first with: npx pi-subagents --remove");
+		console.log("Remove it first with: npx @dev-sergeev/pi-subagents --remove");
 		process.exit(1);
 	}
 } else {

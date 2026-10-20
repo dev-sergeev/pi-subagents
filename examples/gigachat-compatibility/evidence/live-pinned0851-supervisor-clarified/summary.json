@@ -1,0 +1,21 @@
+{
+  "format": 1,
+  "evidenceKind": "pi-gigachat-real-model-smoke",
+  "model": "gigachat-compatibility/GigaChat-3-Ultra",
+  "startedAt": "2026-10-20T07:40:02.717Z",
+  "selectedScenarios": [
+    "supervisor"
+  ],
+  "providerRetries": "8",
+  "complete": true,
+  "passed": false,
+  "cases": [
+    {
+      "name": "supervisor",
+      "passed": false,
+      "evidence": "supervisor.json",
+      "failure": "Model omitted replyText after the explicit supervisor clarification."
+    }
+  ],
+  "completedAt": "2026-10-20T07:40:12.993Z"
+}

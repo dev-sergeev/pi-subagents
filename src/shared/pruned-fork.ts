@@ -443,7 +443,7 @@ export async function createPrunedForkSessionWriter(
 	let sharedSummary: Promise<string> | undefined;
 	const summarize: SummaryFunction = async (payload) => {
 		sharedSummary ??= (async () => {
-			const response = await ctx.modelRegistry.streamSimple(model, {
+			const response = await ctx.modelRegistry.complete(model, {
 				systemPrompt: SYSTEM_PROMPT,
 				messages: [{ role: "user", content: [{ type: "text", text: payload }], timestamp: Date.now() }],
 			}, {
@@ -451,7 +451,7 @@ export async function createPrunedForkSessionWriter(
 				signal,
 				sessionId,
 				...(sessionHeaders ? { headers: sessionHeaders } : {}),
-			}).result();
+			});
 			if (response.stopReason === "error" || response.stopReason === "aborted") {
 				throw new Error(`Pruned fork summarization stopped with ${response.stopReason}${response.errorMessage ? `: ${response.errorMessage}` : ""}`);
 			}

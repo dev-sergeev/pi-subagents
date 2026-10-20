@@ -28,7 +28,7 @@ A command-runner agent with a plain `command` (no adapter) is also how a classif
 
 ### External job profiles
 
-An agent may set `runner.type: external-job` with a non-empty `provider` and optional JSON `options`. When `surf-cli` is installed and loaded, Surf can optionally expose a `gpt-pro` package agent through provider `surf-oracle`. Surf maps `model: pro` to its configured pro web mode. pi-subagents does not own that package agent or model mapping. Remove any old `agentOverrides.gpt-pro.disabled` workaround before using Surf's package agent. The provider must be registered in the host Pi process through `pi-subagents/external-job-provider`; the async runner talks to that parent-owned registry through a local operation bridge.
+An agent may set `runner.type: external-job` with a non-empty `provider` and optional JSON `options`. When `surf-cli` is installed and loaded, Surf can optionally expose a `gpt-pro` package agent through provider `surf-oracle`. Surf maps `model: pro` to its configured pro web mode. pi-subagents does not own that package agent or model mapping. Remove any old `agentOverrides.gpt-pro.disabled` workaround before using Surf's package agent. The provider must be registered in the host Pi process through `@dev-sergeev/pi-subagents/external-job-provider`; the async runner talks to that parent-owned registry through a local operation bridge.
 
 External job profiles are async-only. The provider owns the remote job and Pi owns the async run record. Status persists provider name, provider job id, prompt digest, provider options, handle/conversation URLs when supplied, result artifact path, last known state, and provider failure code/message. Recovery uses existing provider job metadata to call `reattach` and `result`; it refuses to redispatch a prompt when the persisted provider job does not match the prompt digest.
 
@@ -51,7 +51,7 @@ must resume it by key.
 
 ### Forked context
 
-Write this block in the reply, then call `subagent({ workflow: true })` (see [Scripted workflows](#scripted-workflows)):
+Write this block in the reply, then call `subagent({ workflow: "true" })` (see [Scripted workflows](#scripted-workflows)):
 
 ```js workflow
 return runs.run("oracle-check", { agent: "oracle", task: "Review my current direction and challenge assumptions.", context: "fork" });
@@ -81,12 +81,12 @@ reviews, review plus gate monitor, worker then monitor setup, cross-repo prep
 lanes, or a fanout that the parent will consume together.
 
 Write the script as one ```` ```js workflow ```` fenced block in the reply, then
-call `subagent({ workflow: true, ... })` in the same reply. The block is plain
+call `subagent({ workflow: "true", ... })` in the same reply. The block is plain
 text, so it needs no JSON string escaping; a line containing only ```` ``` ````
 (three or more backticks) ends it. A reply carries one block and one
-`workflow: true` call. Use `workflow: "./path/to/script.js"` for a script file.
+`workflow: "true"` call. Use `workflow: "./path/to/script.js"` for a script file.
 Later examples that show only a ```` ```js workflow ```` block run with
-`subagent({ workflow: true })`.
+`subagent({ workflow: "true" })`.
 
 ```js workflow
 const scan = await runs.run("scan", { label: "Map target behavior", agent: "scout", task: "Map the target" });
@@ -98,7 +98,7 @@ return reviews.map(result => result.output);
 ```
 
 ```js
-subagent({ workflow: true, async: true })
+subagent({ workflow: "true", async: true })
 ```
 
 Scripts run in a timed worker with only `runs.run`, `runs.all`, `runs.status`, `runs.ref/refs`, `emit`, captured `console`, and standard JavaScript. Pass explicit task text to `runs.run`. Mission-attached workflows also get `await state.get(key)` and `await state.set(key, value)` for durable JSON state shared across workflows on the same mission; `mission: false` workflows have no `state` global. Stable keys are required. Child launches follow ordinary single-agent execution controls. Give each child a distinct decision and output path when reports must outlive the workflow, then consume the aggregate workflow result before opening individual reports. Do not ask children to write `reports/...` or other repo-root scratch paths in task text.
@@ -182,7 +182,7 @@ then wait on its id; do not resume or launch a replacement while it remains
 detached. Headless sessions also auto-drain exact current-session work at
 `agent_end` as a final safeguard.
 
-Providers are discovered through the `pi-subagents/background-work` registry and
+Providers are discovered through the `@dev-sergeev/pi-subagents/background-work` registry and
 must expose a stable item id and owning session id. Load a provider through the
 child’s `extensions` or `subagentOnlyExtensions` and allow `bg_wait` in its
 tools. For
@@ -197,7 +197,7 @@ return runs.run("main", { agent: "worker", task: "Run the full test suite" });
 ```
 
 ```typescript
-subagent({ workflow: true, async: true })
+subagent({ workflow: "true", async: true })
 ```
 
 File-only output mode works for workflow script child launches. Use relative child output paths for scratch reports so the runtime stores them under the run artifact directory and age-based cleanup can remove them. Use absolute paths only for user-approved durable destinations, such as session memory, a docs folder outside the repo, or a known handoff path. For cross-codebase waves, include the repo slug or lane key in each output path so reports from different repositories cannot collide.
@@ -211,7 +211,7 @@ return runs.run("correctness", { agent: "reviewer", task: "Review the current di
 ```
 
 ```typescript
-const run = subagent({ workflow: true, async: true, options: { context: "fresh" } })
+const run = subagent({ workflow: "true", async: true, options: { context: "fresh" } })
 // Continue local inspection, then later call status with the returned id.
 ```
 
@@ -267,7 +267,7 @@ A failure in the subagent workflow, child launch, prompt runtime, extension load
 
 Use native `subagent` runs for unattended implementation, review, and gate work that needs managed isolation, durable artifacts, and process controls. Use `interactive_shell` for visible terminal work, alternate CLIs, trust prompts, or recovery only when the user explicitly requests that mode or the task is outside the governed subagent protocol; it is not an implicit replacement for a failed `subagent` lane.
 
-A cooperating terminal runtime can register read-only external records through `pi-subagents/external-runs`. Records include the source, session, state, optional report path, and completion reason. They are observations only: pi-subagents does not start, stop, steer, or otherwise own the foreign process. Run unattended raw terminal agents in an explicit isolated cwd or worktree; do not use a live project checkout as disposable review space.
+A cooperating terminal runtime can register read-only external records through `@dev-sergeev/pi-subagents/external-runs`. Records include the source, session, state, optional report path, and completion reason. They are observations only: pi-subagents does not start, stop, steer, or otherwise own the foreign process. Run unattended raw terminal agents in an explicit isolated cwd or worktree; do not use a live project checkout as disposable review space.
 
 ### Scheduled subagent runs
 
@@ -275,7 +275,7 @@ Schedules are durable project records under `.pi/subagents/schedules/`. They are
 
 ```typescript
 // One-shot reviewer, after a ```js workflow block with the script
-subagent({ action: "schedule.create", id: "evening-review", workflow: true, options: { name: "Evening review", at: "+30m" } })
+subagent({ action: "schedule.create", id: "evening-review", workflow: "true", options: { name: "Evening review", at: "+30m" } })
 
 // Fixed recurring workflow from a script file
 subagent({ action: "schedule.create", id: "backlog", workflow: "./.pi/workflows/backlog.js", options: { every: "6h", catchUp: "latest" } })
@@ -290,7 +290,7 @@ subagent({ action: "schedule.run-due" })
 subagent({ action: "schedule.delete", id: "backlog" })
 ```
 
-`schedule.create` accepts exactly one target, a workflow script (`workflow: true` or a script path; the script text is stored at creation), and exactly one trigger (`at`, or a fixed `every` interval using `m`, `h`, `d`, or `w`). Runs always launch async with fresh context and no automatic mission; mission attachment is deferred from this first slice. `overlap` is currently `skip`; `catchUp` supports `latest` and `none`. `schedule.run-due` is the headless external-launcher seam. Calendar recurrence, cron, and the schedule inspector are deferred from this first safe slice. Definitions, bounded history, append-only events, and per-run receipts remain project-scoped across Pi sessions.
+`schedule.create` accepts exactly one target, a workflow script (`workflow: "true"` or a script path; the script text is stored at creation), and exactly one trigger (`at`, or a fixed `every` interval using `m`, `h`, `d`, or `w`). Runs always launch async with fresh context and no automatic mission; mission attachment is deferred from this first slice. `overlap` is currently `skip`; `catchUp` supports `latest` and `none`. `schedule.run-due` is the headless external-launcher seam. Calendar recurrence, cron, and the schedule inspector are deferred from this first safe slice. Definitions, bounded history, append-only events, and per-run receipts remain project-scoped across Pi sessions.
 
 Humans can use `/subagents-doctor` for the same read-only report. It checks runtime paths, discovery counts, async support, current session context, and intercom bridge state.
 
@@ -427,8 +427,8 @@ Project panes run a separate Pi session from the target directory. Subagents lau
 
 ```typescript
 subagent({ action: "mission.create", options: { mission: { title: "Ship auth refresh", objective: "Implement and validate refresh handling" } } })
-subagent({ workflow: true, options: { missionId: "<mission-id>" } }) // after a ```js workflow block
-subagent({ workflow: true, options: { mission: false } }) // after a ```js workflow block
+subagent({ workflow: "true", options: { missionId: "<mission-id>" } }) // after a ```js workflow block
+subagent({ workflow: "true", options: { mission: false } }) // after a ```js workflow block
 subagent({ action: "mission.list", options: { missionScope: "global" } })
 subagent({ action: "mission.resolve-decision", id: "<decision-id>", options: { missionId: "<mission-id>", summary: "Settled: ship the v2 API; no schema freeze needed." } })
 subagent({ action: "project.open", cwd: "/path/to/other-repo", message: "Own this mission for the project and report back with receipts." })
@@ -523,7 +523,7 @@ Use `contact_supervisor` with `reason: "need_decision"` when:
 
 Use `contact_supervisor` with `reason: "interview_request"` when the child needs structured supervisor input rather than a freeform answer. The request waits for a parent reply, so the child should stay alive and continue only after the reply arrives.
 
-Do not use `contact_supervisor` just to resolve review-only/no-project-edit versus progress-writing or output-artifact instructions. The child must not modify project/source files, but returning findings through its normal response or configured output artifact is allowed unless the parent explicitly set `output: false`.
+Do not use `contact_supervisor` just to resolve review-only/no-project-edit versus progress-writing or output-artifact instructions. The child must not modify project/source files, but returning findings through its normal response or configured output artifact is allowed unless the parent explicitly set `output: "false"`.
 
 Use `contact_supervisor` with `reason: "progress_update"` when:
 - a child is explicitly asked for progress
@@ -547,7 +547,7 @@ contact_supervisor({
 The parent replies with the native supervisor tool:
 
 ```typescript
-subagent_supervisor({ action: "reply", message: "Optimize for readability." })
+subagent_supervisor({ action: "reply", replyText: "Optimize for readability." })
 ```
 
 Or inspects unresolved asks first:

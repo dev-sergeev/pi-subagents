@@ -1,9 +1,11 @@
 import { createHash } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { declarationsEqual, getCurrentSystemMessage, getCurrentTools, type AnthropicMessagesCompat, type SystemMessage, type TranscriptMessages } from "@earendil-works/pi-ai";
+import type { AnthropicMessagesCompat } from "@earendil-works/pi-ai";
 import type { BeforeAgentStartEvent, BeforeProviderRequestEvent, ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { registerNativeSupervisorClient } from "../../intercom/native-supervisor-channel.ts";
+import { registerSessionHistoryGuard } from "../../extension/session-history-guard.ts";
+import type { ReadonlyDrainObservation } from "./readonly-drain-observation.ts";
 import { permissionDecision } from "./permissions.ts";
 import type { SteerRequest } from "../background/control-channel.ts";
 import { RUNTIME_EXTENSION_ACK_EVENT, isRuntimeAcknowledgedExtensionId } from "./runtime-acknowledged-extensions.ts";
@@ -23,7 +25,6 @@ import { captureWatchdogDiffBaseline, createWatchdogDiffTool, WATCHDOG_DIFF_TOOL
 import { inheritedNestedRouteOf } from "./nested-events.ts";
 import { registerWaitTool } from "../background/wait-tool.ts";
 import { drainOutstandingWork } from "../background/auto-drain.ts";
-import { MODEL_ONLY_TOOL } from "../../shared/extension-context.ts";
 import {
 	childSupervisorMetadata,
 	evaluateChildToolDiagnostic,
@@ -68,6 +69,7 @@ const PROJECT_CONTEXT_XML_HEADER = "\n\n<project_context>\n\n";
 const PROJECT_CONTEXT_LEGACY_HEADER = "\n\n# Project Context\n\nProject-specific instructions and guidelines:\n\n";
 const SKILLS_HEADER = "\n\nThe following skills provide specialized instructions for specific tasks.";
 const DATE_HEADER = "\nCurrent date:";
+const WORKING_DIRECTORY_HEADER = "\nCurrent working directory:";
 
 function registerRuntimeExtensionAcknowledgements(pi: ExtensionAPI, sink: ((ids: string[]) => void) | undefined): void {
 	if (!sink) return;
@@ -113,12 +115,13 @@ export function stripProjectContext(prompt: string): string {
 		const closingTag = "</project_context>";
 		const closingIndex = prompt.indexOf(closingTag, xmlStartIndex + PROJECT_CONTEXT_XML_HEADER.length);
 		if (closingIndex !== -1) {
-			return `${prompt.slice(0, xmlStartIndex)}${prompt.slice(closingIndex + closingTag.length)}`;
+			const suffix = prompt.slice(closingIndex + closingTag.length).replace(/^\r?\n/, "");
+			return `${prompt.slice(0, xmlStartIndex)}${suffix}`;
 		}
 	}
 	const legacyStartIndex = prompt.indexOf(PROJECT_CONTEXT_LEGACY_HEADER);
 	if (legacyStartIndex === -1) return prompt;
-	const endIndex = findSectionEnd(prompt, legacyStartIndex + PROJECT_CONTEXT_LEGACY_HEADER.length, [SKILLS_HEADER, DATE_HEADER]);
+	const endIndex = findSectionEnd(prompt, legacyStartIndex + PROJECT_CONTEXT_LEGACY_HEADER.length, [SKILLS_HEADER, DATE_HEADER, WORKING_DIRECTORY_HEADER]);
 	return `${prompt.slice(0, legacyStartIndex)}${prompt.slice(endIndex)}`;
 }
 
@@ -173,13 +176,13 @@ function stripGlobalInstructionsFromLegacyContext(context: string): string {
 }
 
 export function stripGlobalContext(prompt: string): string {
-	const rewrittenXml = prompt.replace(/<project_context>[\s\S]*?<\/project_context>/gi, (context) => {
+	const rewrittenXml = prompt.replace(/(?:\r?\n){0,2}<project_context>[\s\S]*?<\/project_context>(?:\r?\n)?/gi, (context) => {
 		const rewritten = stripGlobalInstructionsFromXmlContext(context);
 		return /<project_instructions\b/i.test(rewritten) ? rewritten : "";
 	});
 	const legacyStartIndex = rewrittenXml.indexOf(PROJECT_CONTEXT_LEGACY_HEADER);
 	if (legacyStartIndex === -1) return rewrittenXml;
-	const legacyEndIndex = findSectionEnd(rewrittenXml, legacyStartIndex + PROJECT_CONTEXT_LEGACY_HEADER.length, [SKILLS_HEADER, DATE_HEADER]);
+	const legacyEndIndex = findSectionEnd(rewrittenXml, legacyStartIndex + PROJECT_CONTEXT_LEGACY_HEADER.length, [SKILLS_HEADER, DATE_HEADER, WORKING_DIRECTORY_HEADER]);
 	const legacyContext = rewrittenXml.slice(legacyStartIndex, legacyEndIndex);
 	return `${rewrittenXml.slice(0, legacyStartIndex)}${stripGlobalInstructionsFromLegacyContext(legacyContext)}${rewrittenXml.slice(legacyEndIndex)}`;
 }
@@ -187,14 +190,14 @@ export function stripGlobalContext(prompt: string): string {
 export function stripInheritedSkills(prompt: string): string {
 	const startIndex = prompt.indexOf(SKILLS_HEADER);
 	if (startIndex === -1) return prompt;
-	const endIndex = findSectionEnd(prompt, startIndex + SKILLS_HEADER.length, [DATE_HEADER]);
+	const endIndex = findSectionEnd(prompt, startIndex + SKILLS_HEADER.length, [DATE_HEADER, WORKING_DIRECTORY_HEADER]);
 	return `${prompt.slice(0, startIndex)}${prompt.slice(endIndex)}`;
 }
 
 export function stripSubagentOrchestrationSkill(prompt: string): string {
 	return prompt
 		.replace(/\n{0,2}<skill\s+name=["']pi-subagents["'][^>]*>[\s\S]*?<\/skill>\n{0,2}/g, "\n\n")
-		.replace(/[ \t]*<skill>\s*[\s\S]*?<\/skill>\s*/g, (block) => SUBAGENT_ORCHESTRATION_SKILL_NAME_PATTERN.test(block) ? "" : block);
+		.replace(/[ \t]*<skill>\s*[\s\S]*?<\/skill>[ \t]*(?:\r?\n)?/g, (block) => SUBAGENT_ORCHESTRATION_SKILL_NAME_PATTERN.test(block) ? "" : block);
 }
 
 function stripChildBoundaryInstructions(prompt: string): string {
@@ -236,11 +239,12 @@ export function rewriteSubagentPrompt(prompt: string, options: InheritedPromptOp
 	return appendChildBoundary(stripInheritedPromptText(prompt, options), options);
 }
 
-/** In place, so later handlers and the final render never see the removed context. */
+/** Keep prompt metadata consistent with the filtered text returned to Pi. */
 function filterChildPromptOptions(options: BeforeAgentStartEvent["systemPromptOptions"], inherited: InheritedPromptOptions): void {
 	if (!inherited.inheritProjectContext) options.contextFiles = [];
-	else if (!inherited.inheritGlobalContext) options.contextFiles = options.contextFiles.filter((file) => !isGlobalContextFile(file.path));
-	options.skills = inherited.inheritSkills ? options.skills.filter((skill) => skill.name !== "pi-subagents") : [];
+	else if (!inherited.inheritGlobalContext && options.contextFiles) options.contextFiles = options.contextFiles.filter((file) => !isGlobalContextFile(file.path));
+	if (!inherited.inheritSkills) options.skills = [];
+	else if (options.skills) options.skills = options.skills.filter((skill) => skill.name !== "pi-subagents");
 	// Role prompts can embed context, skill catalogs, or an earlier child's boundary as text.
 	if (options.customPrompt) options.customPrompt = stripInheritedPromptText(options.customPrompt, inherited);
 	if (options.appendSystemPrompt) options.appendSystemPrompt = stripInheritedPromptText(options.appendSystemPrompt, inherited);
@@ -250,13 +254,9 @@ function rewritesChildPrompt(config: ChildRuntimeConfig): boolean {
 	return config.inheritProjectContext !== undefined || config.inheritGlobalContext !== undefined || config.inheritSkills !== undefined || Boolean(config.fanoutChild);
 }
 
-/** Installed after every other extension: a returned prompt freezes out sections added after it. */
+/** Installed after every other extension so the child boundary ends the actual prompt. */
 export function registerSubagentPromptBoundary(pi: ExtensionAPI, config: ChildRuntimeConfig): void {
 	if (!rewritesChildPrompt(config)) return;
-	// A returned prompt replaces the whole system prompt of every request. A fork must send its
-	// parent's prompt unchanged to reuse its prompt cache, so its boundary goes in its task
-	// message instead (see projectForkRequest).
-	if (config.forkCacheKey) return;
 	pi.on("before_agent_start", (event) => {
 		const finalized = appendChildBoundary(event.systemPrompt, { fanoutChild: config.fanoutChild, structuredOutput: Boolean(config.structuredOutput) });
 		return finalized === event.systemPrompt ? undefined : { systemPrompt: finalized };
@@ -295,14 +295,7 @@ const PROMPT_CACHE_KEY_APIS = new Set([
 	"openai-responses",
 ]);
 
-const isSystemMessage = <T extends { role: string }>(message: T): message is T & SystemMessage => message.role === "system";
 const writtenBefore = (message: { timestamp?: unknown }, forkedAt: number) => typeof message.timestamp === "number" && message.timestamp < forkedAt;
-const promptText = (message: SystemMessage | undefined) => typeof message?.content === "string" ? message.content : (message?.content ?? []).map((block) => block.text).join("");
-
-/** The system messages older than `forkedAt`: the prompt and tool state a fork inherited. */
-export function systemMessagesBefore<T extends { role: string }>(messages: readonly T[], forkedAt: number): T[] {
-	return messages.filter((message) => isSystemMessage(message) && writtenBefore(message, forkedAt));
-}
 
 /** The model that wrote a fork's inherited history. */
 export type InheritedModel = { provider: string; api: string; model: string };
@@ -319,102 +312,10 @@ export function modelBefore(messages: readonly { role: string }[], forkedAt: num
 }
 
 /**
- * Sections that describe what a session has (tools, skills, agents, docs, project files) rather
- * than who it is. A fork is told which tools it can call, and it inherited the rest with the
- * parent's prompt, so its own versions of these sections are not repeated in its task message.
- */
-const LOADOUT_SECTIONS = new Set(["tools", "rules", "docs", "skills", "advertised_subagents", "mcp_servers", "project_context"]);
-
-/**
- * The child's own instructions, which a fork sends in its task message instead of its system
- * prompt: the text its own system messages (`own`) add, the sections it changed except the loadout
- * ones, the tools it can call, and its boundary. `parent` is the inherited system messages and
- * `child` the whole request.
- */
-function forkInstructions(input: { parent: TranscriptMessages; child: TranscriptMessages; own: TranscriptMessages; boundary?: string }): string {
-	const parent = getCurrentSystemMessage(input.parent);
-	const child = getCurrentSystemMessage(input.child);
-	const parts = [
-		"The system prompt and tool list of this conversation are the parent session's, sent unchanged so this request reuses the parent's prompt cache. The instructions below are yours and take precedence over the parent's role.",
-		`Tools you can call: ${getCurrentTools(input.child).map((tool) => tool.name).join(", ") || "none"}. Any other declared tool belongs to the parent session and fails if called.`,
-	];
-	const ownPrompt = promptText(getCurrentSystemMessage(input.own));
-	if (ownPrompt.length > 0) parts.push(ownPrompt);
-	for (const [name, value] of Object.entries(child?.sections ?? {})) {
-		if (!LOADOUT_SECTIONS.has(name) && value && parent?.sections?.[name] !== value) parts.push(value);
-	}
-	if (input.boundary) parts.push(input.boundary);
-	return `<subagent_instructions>\n${parts.join("\n\n")}\n</subagent_instructions>`;
-}
-
-function prependText<T>(message: T, text: string): T {
-	const content = (message as { content?: unknown }).content;
-	if (typeof content === "string") return { ...message, content: `${text}\n\n${content}` };
-	if (Array.isArray(content)) return { ...message, content: [{ type: "text", text }, ...content] };
-	return message;
-}
-
-/**
- * A forked child starts with its parent's history, and Anthropic-style providers cache a request
- * as one prefix: tools, then the system prompt, then the messages. The child's own prompt (its
- * role, tool list and boundary) and its own tools changed that prefix right after the tools, so
- * every fork re-read the parent's whole conversation without the prompt cache.
- *
- * A fork's request now starts exactly as its parent's last one did:
- * - The system messages it inherited (`inherited`, older than `forkedAt`) are sent as they are,
- *   and the child's own ones are dropped. When a `context` handler made Pi collapse the request
- *   into one leading system message, that message is rebuilt from `inherited`.
- * - Every tool the parent declared stays declared, with the parent's definition. A tool only the
- *   child has, or one the child defines differently under the parent's name (a `structured_output`
- *   with its own schema, for example), is declared by one system message at the fork point, so the
- *   model sees the definition the child's tool checks.
- * - The child's instructions (its role sections, the boundary, the tools it can call) go first in
- *   its first own user message, after the inherited history.
- *
- * Only what a request sends changes; the session keeps Pi's own record. Once a compaction in the
- * child left no inherited message, there is no parent prefix to match: the child's own prompt is
- * sent, with the boundary added as a section.
- */
-export function projectForkRequest<T extends { role: string }>(messages: T[], inherited: readonly T[], forkedAt: number, options: { boundary?: string } = {}): T[] {
-	const own = (message: T) => !writtenBefore(message as { timestamp?: unknown }, forkedAt);
-	if (inherited.length === 0 || !messages.some((message) => !isSystemMessage(message) && !own(message))) {
-		if (!options.boundary) return messages;
-		const at = messages.findIndex((message) => !isSystemMessage(message));
-		const section = { role: "system", content: "", sections: { subagent_boundary: `<subagent_boundary>\n${options.boundary}\n</subagent_boundary>` }, timestamp: forkedAt } as unknown as T;
-		return at === -1 ? [...messages, section] : [...messages.slice(0, at), section, ...messages.slice(at)];
-	}
-	const instructions = forkInstructions({ parent: inherited, child: messages, own: messages.filter((message) => isSystemMessage(message) && own(message)), boundary: options.boundary });
-	const parentTools = new Map(getCurrentTools(inherited).map((tool) => [tool.name, tool]));
-	const childTools = getCurrentTools(messages).filter((tool) => {
-		const parentTool = parentTools.get(tool.name);
-		return !parentTool || !declarationsEqual(parentTool, tool);
-	});
-	const redefined = childTools.filter((tool) => parentTools.has(tool.name)).map((tool) => ({ name: tool.name }));
-	const sentInherited = messages.filter((message) => isSystemMessage(message) && !own(message));
-	const uncollapsed = sentInherited.length === inherited.length && sentInherited.every((message, index) => JSON.stringify(message) === JSON.stringify(inherited[index]));
-	const conversation = messages.filter((message) => !isSystemMessage(message));
-	const head = getCurrentSystemMessage(inherited) as T | undefined;
-	const next = uncollapsed
-		? messages.filter((message) => !isSystemMessage(message) || !own(message))
-		: [...(head ? [head] : []), ...conversation];
-	const firstOwn = next.findIndex((message) => !isSystemMessage(message) && own(message));
-	const task = next.findIndex((message) => message.role === "user" && own(message));
-	const additions: T[] = [];
-	if (childTools.length > 0) additions.push({ role: "system", content: "", ...(redefined.length > 0 ? { toolsRemoved: redefined } : {}), toolsAdded: childTools, timestamp: forkedAt } as unknown as T);
-	if (task === -1) additions.push({ role: "system", content: "", sections: { subagent_instructions: instructions }, timestamp: forkedAt } as unknown as T);
-	else next[task] = prependText(next[task]!, instructions);
-	const at = firstOwn === -1 ? next.length : firstOwn;
-	return [...next.slice(0, at), ...additions, ...next.slice(at)];
-}
-
-/**
- * Pi sends the session id in a session-affinity header to Anthropic-style endpoints that ask for
- * one (`compat.sendSessionAffinityHeaders`), and routers use it to keep a session on the upstream
- * that holds its prompt cache. A fork's request starts with its parent's whole cached prefix, so it
- * names its parent's session to be routed to that cache; otherwise a router with several upstreams
- * may send it to one that never saw the parent. Only the header Pi itself sends is changed, and only
- * when the child runs on the model that wrote its inherited history (`parentModel`, the last
- * inherited assistant message): any other model holds no cache of that prefix.
+ * Pi 0.85 sends `x-session-affinity` to Anthropic-style endpoints that enable
+ * `compat.sendSessionAffinityHeaders`. Keep a fork on its parent's upstream when the
+ * model matches its inherited history. This is routing affinity, not a guarantee of
+ * a prefix-cache hit: the child sends its own native system prompt and tools.
  */
 export function applyForkSessionAffinity(headers: Record<string, string | null | undefined> | undefined, model: ExtensionContext["model"] | undefined, parentSessionId: string | undefined, parentModel: InheritedModel | undefined): void {
 	const parent = parentSessionId?.trim();
@@ -422,7 +323,7 @@ export function applyForkSessionAffinity(headers: Record<string, string | null |
 	if (!parentModel || parentModel.provider !== model.provider || parentModel.api !== model.api || parentModel.model !== model.id) return;
 	const compat = model.compat as AnthropicMessagesCompat | undefined;
 	if (!compat?.sendSessionAffinityHeaders) return;
-	headers[compat.sessionAffinityFormat === "openrouter" ? "x-session-id" : "x-session-affinity"] = parent;
+	headers["x-session-affinity"] = parent;
 }
 
 export function rewriteForkCacheProviderRequest(event: BeforeProviderRequestEvent, ctx: Pick<ExtensionContext, "model"> | undefined, forkCacheKey: string | undefined): unknown {
@@ -476,9 +377,9 @@ function stripAssistantSubagentToolCallBlocks(message: unknown): unknown | undef
 }
 
 /**
- * `inheritedBefore`, set in a forked child to the fork's time, keeps the history the child
- * inherited as the parent sent it, so its requests can reuse the parent's prompt cache; only tool
- * ids are still made portable there. The child cannot run `subagent` either way.
+ * `inheritedBefore`, set in a forked child to the fork's time, preserves the inherited
+ * conversation while removing parent-only artifacts added by this child. Tool IDs
+ * are still made portable throughout. Actual tool execution uses the child's allowlist.
  */
 export function stripParentOnlySubagentMessages(messages: unknown[], options: { sanitizeToolIds?: boolean; preserveBoundedCompositeToolIds?: boolean; preserveFanoutToolHistory?: boolean; inheritedBefore?: number } = {}): unknown[] {
 	const preserveCurrentFanoutToolHistory = options.preserveFanoutToolHistory === true;
@@ -601,7 +502,6 @@ function registerStructuredOutputTool(pi: ExtensionAPI, structured: NonNullable<
 	}) => void;
 	registerTool({
 		name: "structured_output",
-		...MODEL_ONLY_TOOL,
 		label: "Structured Output",
 		description: "Submit the required final structured output for this subagent step. This terminates the step.",
 		parameters,
@@ -631,12 +531,13 @@ function registerStructuredOutputTool(pi: ExtensionAPI, structured: NonNullable<
 }
 
 /** Register every child-side hook the prompt runtime owns for one child session. */
-export default function registerSubagentPromptRuntime(pi: ExtensionAPI, config?: ChildRuntimeConfig, drainObservation?: import("./readonly-drain-observation.ts").ReadonlyDrainObservation): void {
+export default function registerSubagentPromptRuntime(pi: ExtensionAPI, config?: ChildRuntimeConfig, drainObservation?: ReadonlyDrainObservation): void {
 	// A path-based load has no ChildRuntimeConfig. This can happen if an
 	// ambient-extension discovery path finds the runtime module in addition to
 	// the configured inline factory. It must be inert rather than crashing the
 	// child before startup; the inline factory remains the real registration path.
 	if (!config) return;
+	registerSessionHistoryGuard(pi);
 	registerRuntimeExtensionAcknowledgements(pi, config.runtimeAcknowledgements);
 	registerPermissionGate(pi, config.permissions, config.childWatchdog);
 	registerToolBudget(pi, config.toolBudget);
@@ -702,34 +603,27 @@ export default function registerSubagentPromptRuntime(pi: ExtensionAPI, config?:
 	});
 	if (config.structuredOutput) registerStructuredOutputTool(pi, config.structuredOutput);
 
-	onRuntimeEvent("before_provider_request", (event: unknown, ctx?: ExtensionContext) => rewriteForkCacheProviderRequest(event as BeforeProviderRequestEvent, ctx, config.forkCacheKey));
+	pi.on("before_provider_request", (event, ctx) => rewriteForkCacheProviderRequest(event, ctx, config.forkCacheKey));
 
 	// A fork launch sets forkCacheKey. Pi writes the fork's session header when it copies the
 	// parent's branch, so every inherited message is older and every message this child writes,
 	// also after a resume, is not.
-	// The inherited system messages and model are read from the session once: a request may hold
-	// only Pi's collapsed leading message, and what came before the fork never changes.
-	let inherited: { session: string; forkedAt: number; system: Array<{ role: string }>; model?: InheritedModel } | undefined;
+	// Only historical model identity is needed; 0.85 stores no system prompt/tool transcript.
+	let inherited: { session: string; forkedAt: number; model?: InheritedModel } | undefined;
 	const readInherited = (ctx: ExtensionContext | undefined) => {
 		const header = ctx?.sessionManager?.getHeader();
 		if (!header) return undefined;
 		if (inherited?.session !== header.id) {
 			const forkedAt = Date.parse(header.timestamp);
-			const messages = Number.isFinite(forkedAt) ? ctx!.sessionManager.buildSessionProjection().messages : [];
-			inherited = { session: header.id, forkedAt, system: systemMessagesBefore(messages, forkedAt), model: modelBefore(messages, forkedAt) };
+			const messages = Number.isFinite(forkedAt)
+				? ctx!.sessionManager.getBranch().flatMap((entry) => entry.type === "message" ? [entry.message] : [])
+				: [];
+			inherited = { session: header.id, forkedAt, model: modelBefore(messages, forkedAt) };
 		}
 		return Number.isFinite(inherited.forkedAt) ? inherited : undefined;
 	};
-	const boundary = rewritesChildPrompt(config) ? childBoundary({ fanoutChild: config.fanoutChild, structuredOutput: Boolean(config.structuredOutput) }) : undefined;
-	if (config.forkCacheKey) onRuntimeEvent("before_provider_headers", (event: unknown, ctx?: ExtensionContext) => {
-		applyForkSessionAffinity((event as { headers?: Record<string, string | null | undefined> } | undefined)?.headers, ctx?.model, config.parentSessionId, readInherited(ctx)?.model);
-	});
-	if (config.forkCacheKey) onRuntimeEvent("context_with_system", (event: unknown, ctx?: ExtensionContext) => {
-		if (!event || typeof event !== "object" || !("messages" in event) || !Array.isArray(event.messages)) return undefined;
-		const fork = readInherited(ctx);
-		if (!fork) return undefined;
-		const messages = projectForkRequest(event.messages as Array<{ role: string }>, fork.system, fork.forkedAt, { boundary });
-		return messages === event.messages ? undefined : { messages };
+	if (config.forkCacheKey) pi.on("before_provider_headers", (event, ctx) => {
+		applyForkSessionAffinity(event.headers, ctx.model, config.parentSessionId, readInherited(ctx)?.model);
 	});
 
 	onRuntimeEvent("context", (event: unknown, ctx?: ExtensionContext) => {
@@ -758,20 +652,23 @@ export default function registerSubagentPromptRuntime(pi: ExtensionAPI, config?:
 		});
 	}
 
-	onRuntimeEvent("before_agent_start", async (event: unknown) => {
-		if (!event || typeof event !== "object" || !("systemPrompt" in event) || typeof event.systemPrompt !== "string") return undefined;
+	pi.on("before_agent_start", async (event) => {
 		registerNativeSupervisorClientOnce();
 		const childSessionName = intercomIdClaimed ? config.sessionName || routingName : routingName || config.sessionName;
 		if (childSessionName && typeof pi.setSessionName === "function") {
 			pi.setSessionName(childSessionName);
 		}
 
-		// Filter the inputs instead of returning a prompt; the boundary hook appends the boundary last.
+		// Pi 0.85 does not re-render mutated options. Return the filtered text as well;
+		// the final boundary hook then appends the boundary after every other extension.
 		if (!rewritesChildPrompt(config)) return;
-		filterChildPromptOptions((event as BeforeAgentStartEvent).systemPromptOptions, {
+		const inherited = {
 			inheritProjectContext: config.inheritProjectContext ?? true,
 			inheritGlobalContext: config.inheritGlobalContext ?? true,
 			inheritSkills: config.inheritSkills ?? true,
-		});
+		};
+		filterChildPromptOptions(event.systemPromptOptions, inherited);
+		const systemPrompt = stripInheritedPromptText(event.systemPrompt, inherited);
+		return systemPrompt === event.systemPrompt ? undefined : { systemPrompt };
 	});
 }

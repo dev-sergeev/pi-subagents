@@ -28,6 +28,7 @@ function fixture() {
 	let starts = 0, activations = 0, terminal = () => {};
 	let done = Promise.resolve();
 	const pi = {
+		on() {},
 		getAllTools: () => [], registerTool() {}, getSessionName: () => "parent",
 		events: { emit() {}, on() { return () => {}; } },
 		sendMessage(message: { details?: { id?: string } }) { if (message.details?.id) sent.push(message.details.id); },

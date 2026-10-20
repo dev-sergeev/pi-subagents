@@ -25,21 +25,26 @@ describe("async compaction resume", () => {
 			let renders = 0;
 			const pi = new Proxy({
 				events,
+				activeTools: [],
+				registeredTools: [],
+				getAllTools() { return this.registeredTools; },
+				getActiveTools() { return this.activeTools; },
+				setActiveTools(tools) { this.activeTools = tools; },
 				on(name, handler) { handlers.set(name, [...(handlers.get(name) ?? []), handler]); },
-				registerTool() {}, registerCommand() {}, registerShortcut() {}, registerMessageRenderer() {},
+				registerTool(tool) { this.registeredTools.push(tool); }, registerCommand() {}, registerShortcut() {}, registerMessageRenderer() {},
 				sendMessage(message, options) { sent.push({ message, options }); }, getSessionName() { return undefined; },
 				sendUserMessage(text, options) { userMessages.push({ text, options }); },
 			}, { get(target, prop) { return prop in target ? target[prop] : () => undefined; } });
 			let idle = false;
 			const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-			const ctx = { cwd: process.cwd(), isIdle() { return idle; }, hasUI: true, ui: { setWidget(key, value) { widgets.push([key, value]); }, requestRender() { renders++; }, onTerminalInput() { return () => {}; }, getEditorText() { return ""; }, notify() {}, theme: { fg(_name, text) { return text; }, bg(_name, text) { return text; }, bold(text) { return text; } } }, sessionManager: { getSessionId() { return "compact-session"; }, getSessionFile() { return null; }, getEntries() { return []; } }, modelRegistry: { getAvailable() { return []; } } };
+			const ctx = { cwd: process.cwd(), isIdle() { return idle; }, hasUI: true, ui: { setWidget(key, value) { widgets.push([key, value]); }, requestRender() { renders++; }, onTerminalInput() { return () => {}; }, getEditorText() { return ""; }, notify() {}, theme: { fg(_name, text) { return text; }, bg(_name, text) { return text; }, bold(text) { return text; } } }, sessionManager: { getSessionId() { return "compact-session"; }, getSessionFile() { return null; }, getEntries() { return []; }, getBranch() { return this.getEntries(); } }, modelRegistry: { getAvailable() { return []; } } };
 			registerSubagentExtension(pi);
 			for (const handler of handlers.get("session_start")) await handler({}, ctx);
 			sent.length = 0;
 			events.emit("subagent:async-started", { id: "running", pid: 1, sessionId: "compact-session", mode: "single", agent: "worker", asyncDir: path.join(os.tmpdir(), "pi-compaction-test-running") });
 			widgets.length = 0;
 			renders = 0;
-			for (const handler of handlers.get("session_before_compact")) await handler({ reason: "threshold", signal: new AbortController().signal });
+			for (const handler of handlers.get("session_before_compact")) await handler({ reason: "threshold", branchEntries: [], signal: new AbortController().signal });
 			const cleared = widgets.filter(([key, value]) => value === undefined).map(([key]) => key).sort();
 			if (JSON.stringify(cleared) !== JSON.stringify(["subagent-async", "subagent-fleet-status"])) throw new Error(JSON.stringify(widgets));
 			widgets.length = 0;
@@ -55,7 +60,7 @@ describe("async compaction resume", () => {
 
 			sent.length = 0;
 			widgets.length = 0;
-			for (const handler of handlers.get("session_before_compact")) await handler({ reason: "manual", signal: new AbortController().signal });
+			for (const handler of handlers.get("session_before_compact")) await handler({ reason: "manual", branchEntries: [], signal: new AbortController().signal });
 			if (widgets.length !== 0) throw new Error("manual compaction changed widget state");
 			for (const handler of handlers.get("session_compact")) await handler({ reason: "manual" });
 			await sleep(150);
@@ -69,7 +74,7 @@ describe("async compaction resume", () => {
 
 			sent.length = 0;
 			events.emit("subagent:async-complete", { id: "running-2", sessionId: "compact-session", agent: "worker", success: true, summary: "done" });
-			for (const handler of handlers.get("session_before_compact")) await handler({ reason: "manual", signal: new AbortController().signal });
+			for (const handler of handlers.get("session_before_compact")) await handler({ reason: "manual", branchEntries: [], signal: new AbortController().signal });
 			for (const handler of handlers.get("session_compact")) await handler({ reason: "manual" });
 			for (const handler of handlers.get("agent_settled")) await handler();
 			if (sent.some((entry) => entry.message?.customType === "subagent-compaction-resume")) throw new Error("resumed without active work");
@@ -77,14 +82,14 @@ describe("async compaction resume", () => {
 			events.emit("subagent:async-started", { id: "running-3", pid: 3, sessionId: "compact-session", mode: "single", agent: "worker", asyncDir: path.join(os.tmpdir(), "pi-compaction-test-running-3") });
 			sent.length = 0;
 			widgets.length = 0;
-			for (const handler of handlers.get("session_before_compact")) await handler({ reason: "overflow", signal: new AbortController().signal });
+			for (const handler of handlers.get("session_before_compact")) await handler({ reason: "overflow", branchEntries: [], signal: new AbortController().signal });
 			widgets.length = 0;
 			for (const handler of handlers.get("session_compact")) await handler({ reason: "overflow" });
 			if (sent.some((entry) => entry.message?.customType === "subagent-compaction-resume")) throw new Error("resumed after overflow compaction");
 			for (const handler of handlers.get("agent_start")) await handler();
 
 			widgets.length = 0;
-			for (const handler of handlers.get("session_before_compact")) await handler({ reason: "overflow", signal: new AbortController().signal });
+			for (const handler of handlers.get("session_before_compact")) await handler({ reason: "overflow", branchEntries: [], signal: new AbortController().signal });
 			widgets.length = 0;
 			for (const handler of handlers.get("agent_settled")) await handler();
 			if (!widgets.some(([_, value]) => value !== undefined)) throw new Error("widgets did not recover after compaction failure");
@@ -117,9 +122,15 @@ describe("async compaction resume", () => {
 			const widgets = [];
 			const pi = new Proxy({
 				events,
+				activeTools: [],
+				registeredTools: [],
+				getAllTools() { return this.registeredTools; },
+				registerTool(tool) { this.registeredTools.push(tool); },
+				getActiveTools() { return this.activeTools; },
+				setActiveTools(tools) { this.activeTools = tools; },
 				on(name, handler) { handlers.set(name, [...(handlers.get(name) ?? []), handler]); },
 			}, { get(target, prop) { return prop in target ? target[prop] : () => undefined; } });
-			const ctx = { cwd: process.cwd(), isIdle() { return false; }, hasUI: true, ui: { setWidget(key, value) { widgets.push([key, value]); }, requestRender() {}, onTerminalInput() { return () => {}; }, getEditorText() { return ""; }, notify() {}, theme: { fg(_name, text) { return text; }, bg(_name, text) { return text; }, bold(text) { return text; } } }, sessionManager: { getSessionId() { return "mid-run-session"; }, getSessionFile() { return null; }, getEntries() { return []; } }, modelRegistry: { getAvailable() { return []; } } };
+			const ctx = { cwd: process.cwd(), isIdle() { return false; }, hasUI: true, ui: { setWidget(key, value) { widgets.push([key, value]); }, requestRender() {}, onTerminalInput() { return () => {}; }, getEditorText() { return ""; }, notify() {}, theme: { fg(_name, text) { return text; }, bg(_name, text) { return text; }, bold(text) { return text; } } }, sessionManager: { getSessionId() { return "mid-run-session"; }, getSessionFile() { return null; }, getEntries() { return []; }, getBranch() { return this.getEntries(); } }, modelRegistry: { getAvailable() { return []; } } };
 			registerSubagentExtension(pi);
 			for (const handler of handlers.get("session_start")) await handler({}, ctx);
 			for (const handler of handlers.get("agent_start")) await handler();
@@ -144,12 +155,17 @@ describe("async compaction resume", () => {
 			const sent = [];
 			const pi = new Proxy({
 				events,
+				activeTools: [],
+				registeredTools: [],
+				getAllTools() { return this.registeredTools; },
+				getActiveTools() { return this.activeTools; },
+				setActiveTools(tools) { this.activeTools = tools; },
 				on(name, handler) { handlers.set(name, [...(handlers.get(name) ?? []), handler]); },
-				registerTool() {}, registerCommand() {}, registerShortcut() {}, registerMessageRenderer() {},
+				registerTool(tool) { this.registeredTools.push(tool); }, registerCommand() {}, registerShortcut() {}, registerMessageRenderer() {},
 				sendMessage(message, options) { sent.push({ message, options }); }, getSessionName() { return undefined; },
 			}, { get(target, prop) { return prop in target ? target[prop] : () => undefined; } });
 			let stale = false;
-			const ctx = { cwd: process.cwd(), isIdle() { return false; }, get hasUI() { if (stale) throw new Error("This extension ctx is stale after session replacement or reload."); return true; }, ui: { setWidget() {}, requestRender() {}, onTerminalInput() { return () => {}; }, getEditorText() { return ""; }, notify() {}, theme: { fg(_name, text) { return text; }, bg(_name, text) { return text; }, bold(text) { return text; } } }, sessionManager: { getSessionId() { return "stale-context-session"; }, getSessionFile() { return null; }, getEntries() { return []; } }, modelRegistry: { getAvailable() { return []; } } };
+			const ctx = { cwd: process.cwd(), isIdle() { return false; }, get hasUI() { if (stale) throw new Error("This extension ctx is stale after session replacement or reload."); return true; }, ui: { setWidget() {}, requestRender() {}, onTerminalInput() { return () => {}; }, getEditorText() { return ""; }, notify() {}, theme: { fg(_name, text) { return text; }, bg(_name, text) { return text; }, bold(text) { return text; } } }, sessionManager: { getSessionId() { return "stale-context-session"; }, getSessionFile() { return null; }, getEntries() { return []; }, getBranch() { return this.getEntries(); } }, modelRegistry: { getAvailable() { return []; } } };
 			registerSubagentExtension(pi);
 			for (const handler of handlers.get("session_start")) await handler({}, ctx);
 			sent.length = 0;

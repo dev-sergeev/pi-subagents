@@ -24,6 +24,12 @@ it("loads the executor and Fleet within seconds of a session starting, not at se
 	const handlers = new Map<string, Array<(event: unknown, ctx: unknown) => unknown>>();
 	const pi = new Proxy({
 		events: createEventBus(),
+		activeTools: [] as string[],
+		registeredTools: [] as Array<{ name: string }>,
+		getAllTools() { return this.registeredTools; },
+		registerTool(tool: { name: string }) { this.registeredTools.push(tool); },
+		getActiveTools() { return this.activeTools; },
+		setActiveTools(tools: string[]) { this.activeTools = tools; },
 		on(name: string, handler: (event: unknown, ctx: unknown) => unknown) {
 			handlers.set(name, [...(handlers.get(name) ?? []), handler]);
 		},
@@ -31,7 +37,7 @@ it("loads the executor and Fleet within seconds of a session starting, not at se
 	const ctx = {
 		cwd: process.cwd(), isIdle() { return false; }, hasUI: false, model: undefined,
 		ui: { setWidget() {}, theme: { fg: (_name: string, text: string) => text, bg: (_name: string, text: string) => text, bold: (text: string) => text } },
-		sessionManager: { getSessionId: () => "preload-session", getSessionFile: () => null, getEntries: () => [] },
+		sessionManager: { getSessionId: () => "preload-session", getSessionFile: () => null, getEntries: () => [], getBranch() { return this.getEntries(); } },
 		modelRegistry: { getAvailable: () => [] },
 	};
 

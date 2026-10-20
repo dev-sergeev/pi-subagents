@@ -20,6 +20,7 @@ const script = String.raw`
 		events,
 		on(name, handler) { handlers.set(name, [...(handlers.get(name) ?? []), handler]); },
 		getActiveTools() { return ["subagent"]; },
+		getAllTools() { return ["subagent", "contact_supervisor", "subagent_supervisor", "bg_wait", "subagents_enable"].map(name => ({ name })); },
 	}, { get(target, key) { return key in target ? target[key] : () => undefined; } });
 	register(pi);
 	const ctx = {
@@ -29,9 +30,12 @@ const script = String.raw`
 	};
 	for (const handler of handlers.get("session_start")) await handler({ reason: "startup" }, ctx);
 	const prompt = async (selectedTools = ["subagent"]) => {
-		const sections = {};
-		await handlers.get("before_agent_start").at(-2)({ systemPrompt: "base", systemPromptOptions: { selectedTools, sections } }, ctx);
-		return sections.active_subagents ?? null;
+		let systemPrompt = "base";
+		for (const handler of handlers.get("before_agent_start") ?? []) {
+			const result = await handler({ systemPrompt, systemPromptOptions: { selectedTools } }, ctx);
+			if (result?.systemPrompt) systemPrompt = result.systemPrompt;
+		}
+		return systemPrompt.match(/<active_subagents>\n([\s\S]*?)\n<\/active_subagents>/)?.[1] ?? null;
 	};
 	const start = (id, sessionId) => events.emit("subagent:async-started", { id, pid: process.pid, sessionId, mode: "single", agent: "researcher", task: "[prompt redacted]", asyncDir: path.join(os.tmpdir(), "active-runs-" + id) });
 	const seen = { idle: await prompt() };

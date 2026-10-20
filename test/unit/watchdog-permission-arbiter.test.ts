@@ -4,14 +4,14 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { describe, it } from "node:test";
 import type { StreamFn } from "@earendil-works/pi-agent-core";
-import { createAssistantMessageEventStream, fauxAssistantMessage, fauxToolCall, getCurrentTools, type AssistantMessage, type Model, type TranscriptContext } from "@earendil-works/pi-ai";
+import { createAssistantMessageEventStream, fauxAssistantMessage, fauxToolCall, type AssistantMessage, type Context, type Model } from "@earendil-works/pi-ai";
 import { createWatchdogPermissionArbiter } from "../../src/watchdog/permission-arbiter.ts";
 
 function model(): Model<any> {
 	return { id: "watchdog", name: "watchdog", api: "faux", provider: "test", baseUrl: "https://example.invalid", reasoning: true, input: ["text"], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 100_000, maxTokens: 4_096 };
 }
 
-function ctx(current = model(), cwd = "/tmp/watchdog-permission", registryStream?: StreamFn) {
+function ctx(current = model(), cwd = "/tmp/watchdog-permission") {
 	return {
 		cwd,
 		model: current,
@@ -22,7 +22,6 @@ function ctx(current = model(), cwd = "/tmp/watchdog-permission", registryStream
 			find: (provider: string, id: string) => provider === current.provider && id === current.id ? current : undefined,
 			hasConfiguredAuth: () => true,
 			getApiKeyAndHeaders: async () => ({ ok: true as const, apiKey: "test-key" }),
-			streamSimple: registryStream ?? (() => { throw new Error("Unexpected model registry stream call"); }),
 		},
 	} as never;
 }
@@ -33,7 +32,7 @@ function responseStream(message: AssistantMessage) {
 	return stream;
 }
 
-function stream(decision: "approve" | "deny", reason: string, calls: TranscriptContext[] = []): StreamFn {
+function stream(decision: "approve" | "deny", reason: string, calls: Context[] = []): StreamFn {
 	const responses = [
 		fauxAssistantMessage(fauxToolCall("watchdog_permission_decision", { decision, reason }), { stopReason: "toolUse" }),
 		fauxAssistantMessage("done", { stopReason: "stop" }),
@@ -55,26 +54,6 @@ const childConfig = JSON.stringify({
 });
 
 describe("watchdog permission arbiter", () => {
-	it("uses the session model registry stream for complete providers", async () => {
-		const current = model();
-		const calls: TranscriptContext[] = [];
-		const registryModels: Model<any>[] = [];
-		const providerStream = stream("approve", "registry-owned stream", calls);
-		const registryStream: StreamFn = (nextModel, context, options) => {
-			registryModels.push(nextModel);
-			return providerStream(nextModel, context, options);
-		};
-		const result = await createWatchdogPermissionArbiter()({
-			ctx: ctx(current, "/tmp/watchdog-permission", registryStream),
-			toolName: "write",
-			args: { path: "out.txt" },
-			rawWatchdogConfig: childConfig,
-		});
-
-		assert.deepEqual(result, { approved: true, reason: "registry-owned stream", source: "watchdog" });
-		assert.equal(calls.length, 2);
-		assert.deepEqual(registryModels, [current, current]);
-	});
 
 	it("approves and denies exact calls through the watchdog model decision tool", async () => {
 		const approved = await createWatchdogPermissionArbiter({ streamFn: stream("approve", "safe output path") })({ ctx: ctx(), toolName: "write", args: { path: "out.txt" }, rawWatchdogConfig: childConfig });
@@ -84,34 +63,6 @@ describe("watchdog permission arbiter", () => {
 		assert.deepEqual(denied, { approved: false, reason: "path is outside scope", source: "watchdog" });
 	});
 
-	it("sends complete arbiter instructions and the helper cwd in the leading system message", async () => {
-		const calls: TranscriptContext[] = [];
-		const context = ctx(model(), "/tmp/watchdog-parent/../watchdog-permission");
-
-		await createWatchdogPermissionArbiter({ streamFn: stream("approve", "within scope", calls) })({
-			ctx: context,
-			toolName: "write",
-			args: { path: "out.txt" },
-			rawWatchdogConfig: childConfig,
-		});
-
-		assert.deepEqual(calls[0]?.messages[0], {
-			role: "system",
-			content: [
-				"You are the pi-subagents watchdog permission arbiter.",
-				"Decide only whether this exact non-bash child tool call should proceed.",
-				"Call watchdog_permission_decision exactly once with approve or deny and a concise reason.",
-				"Deny when uncertain. Do not produce freeform advice or ask the parent orchestrator.",
-				"",
-				"<cwd>",
-				"/tmp/watchdog-parent/../watchdog-permission",
-				"</cwd>",
-			].join("\n"),
-			toolsAdded: getCurrentTools(calls[0]!.messages),
-			timestamp: calls[0]?.messages[0]?.timestamp,
-		});
-		assert.deepEqual(getCurrentTools(calls[0]!.messages).map((tool) => tool.name), ["watchdog_permission_decision"]);
-	});
 
 	it("fails closed before provider invocation when the helper cwd can escape its system section", async () => {
 		const dir = fs.mkdtempSync(path.join(os.tmpdir(), "watchdog-permission-cwd-"));

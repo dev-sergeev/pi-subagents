@@ -1,0 +1,114 @@
+{
+  "format": 1,
+  "evidenceKind": "pi-gigachat-real-model-smoke",
+  "model": "gigachat-compatibility/GigaChat-3-Ultra",
+  "startedAt": "2026-10-20T05:29:34.247Z",
+  "selectedScenarios": [
+    "single-agent",
+    "workflow-file",
+    "async",
+    "supervisor",
+    "structured-output",
+    "watchdog"
+  ],
+  "complete": true,
+  "passed": false,
+  "cases": [
+    {
+      "name": "single-agent",
+      "passed": true,
+      "evidence": "single-agent.json",
+      "facts": {
+        "activation": true,
+        "childRead": true,
+        "childCompleted": true,
+        "nonceInFinalParentAnswer": true,
+        "nonceInProviderDeliveredResult": true,
+        "publicStringOutputAndFreshOptions": true,
+        "foregroundSingleLaunch": true
+      }
+    },
+    {
+      "name": "workflow-file",
+      "passed": true,
+      "evidence": "workflow-file.json",
+      "facts": {
+        "activation": true,
+        "childRead": true,
+        "childCompleted": true,
+        "nonceInFinalParentAnswer": true,
+        "nonceInProviderDeliveredResult": true,
+        "publicStringOutputAndFreshOptions": true,
+        "fileWorkflow": true
+      }
+    },
+    {
+      "name": "async",
+      "passed": false,
+      "evidence": "async.json",
+      "facts": {
+        "activation": true,
+        "childRead": false,
+        "childCompleted": false,
+        "nonceInFinalParentAnswer": false,
+        "nonceInProviderDeliveredResult": false,
+        "publicStringOutputAndFreshOptions": true,
+        "actualAsyncRunId": true,
+        "awaitedActualRunId": true,
+        "actualAsyncResult": false
+      },
+      "failure": "Acceptance failed: childRead, childCompleted, nonceInFinalParentAnswer, nonceInProviderDeliveredResult, actualAsyncResult"
+    },
+    {
+      "name": "supervisor",
+      "passed": false,
+      "evidence": "supervisor.json",
+      "facts": {
+        "activation": true,
+        "childRead": false,
+        "childCompleted": false,
+        "nonceInFinalParentAnswer": false,
+        "nonceInProviderDeliveredResult": false,
+        "publicStringOutputAndFreshOptions": true,
+        "actualAsyncRunId": true,
+        "awaitedActualRunId": true,
+        "actualAsyncResult": false,
+        "pendingActualDecision": false,
+        "repliedActualDecision": false,
+        "childSupervisorTool": false,
+        "verifiedFinalAnswer": false
+      },
+      "failure": "Acceptance failed: childRead, childCompleted, nonceInFinalParentAnswer, nonceInProviderDeliveredResult, actualAsyncResult, pendingActualDecision, repliedActualDecision, childSupervisorTool, verifiedFinalAnswer"
+    },
+    {
+      "name": "structured-output",
+      "passed": false,
+      "evidence": "structured-output.json.gz",
+      "facts": {
+        "activation": true,
+        "childRead": false,
+        "childCompleted": false,
+        "nonceInFinalParentAnswer": false,
+        "nonceInProviderDeliveredResult": false,
+        "publicStringOutputAndFreshOptions": true,
+        "foregroundSingleLaunch": true,
+        "strictRequestedSchema": false,
+        "validatedChildStructuredCapture": false
+      },
+      "failure": "Scenario exceeded its ten-minute wall-clock deadline and was aborted."
+    },
+    {
+      "name": "watchdog",
+      "passed": true,
+      "evidence": "watchdog.json",
+      "facts": {
+        "readActualFixture": true,
+        "realWarnToolCall": true,
+        "recordedWarning": true,
+        "laterRealRequestWithWarningResult": true,
+        "cleanReviewCompletion": true
+      }
+    }
+  ],
+  "completedAt": "2026-10-20T05:40:41.964Z"
+}

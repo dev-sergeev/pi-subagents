@@ -1,0 +1,35 @@
+{
+  "name": "subagent_supervisor",
+  "description": "Native pi-subagents supervisor channel. Use reply/pending/status to answer child subagent requests without overriding pi-intercom.",
+  "parameters": {
+    "type": "object",
+    "required": [
+      "action"
+    ],
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": [
+          "list",
+          "pending",
+          "status",
+          "reply"
+        ],
+        "description": "List pending requests, inspect status, or reply to a request."
+      },
+      "to": {
+        "type": "string",
+        "description": "Unique request id prefix, agent or child target; replyTo takes precedence."
+      },
+      "message": {
+        "type": "string",
+        "description": "Reply text; required for reply. Interviews need JSON matching the requested shape."
+      },
+      "replyTo": {
+        "type": "string",
+        "description": "Exact pending request id; omit only with one matching request."
+      }
+    },
+    "additionalProperties": false
+  }
+}

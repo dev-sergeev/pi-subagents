@@ -21,6 +21,7 @@ import { PI_CODING_AGENT_PACKAGE, resolveHostPiPackageRoot } from "./pi-spawn.ts
 import type { ChildRuntimeConfig } from "./child-runtime-config.ts";
 import type { RequiredChildExtensionSnapshot } from "../../shared/required-child-extensions.ts";
 import type { HerdrMachineReference, HerdrRemoteGitStatus } from "../../shared/types.ts";
+import { assertSupportedSessionHistory } from "../../extension/session-history-guard.ts";
 
 export interface ChildSessionEvent {
 	type: string;
@@ -555,6 +556,7 @@ export function createDefaultChildSessionFactory(options: DefaultChildSessionFac
 						: launch.storage.kind === "memory"
 							? pi.SessionManager.inMemory(launch.cwd, newSessionOptions)
 							: pi.SessionManager.create(launch.cwd, undefined, newSessionOptions);
+				assertSupportedSessionHistory(sessionManager.getBranch());
 				// SessionManager.open takes no parent for a file it is about to create, so set it on the
 				// header Pi writes with the first assistant message. Forked and resumed files keep theirs.
 				const header = newSessionFile && launch.parentSessionFile ? sessionManager.getHeader() : null;

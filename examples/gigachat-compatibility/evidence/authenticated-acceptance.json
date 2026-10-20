@@ -1,0 +1,82 @@
+{
+  "historical": true,
+  "sdkVersion": "0.87.0",
+  "supersededBy": "acceptance-pinned0851.json",
+  "capturedAt": "2026-10-19T20:47:03.443Z",
+  "authorization": {
+    "endpoint": "https://ngw.devices.sberbank.ru:9443/api/v2/oauth",
+    "httpStatus": 200,
+    "scope": "GIGACHAT_API_PERS",
+    "tokenReceived": true,
+    "credentialsPersistedByThisRun": false,
+    "tlsVerified": true
+  },
+  "catalog": {
+    "endpoint": "https://api.giga.chat/v1/models",
+    "httpStatus": 200,
+    "models": [
+      "GigaChat-2",
+      "GigaChat-2-Max",
+      "GigaChat-2-Pro",
+      "GigaChat-3-Lightning",
+      "GigaChat-3-Pro",
+      "GigaChat-3-Ultra",
+      "Embeddings",
+      "Embeddings-2",
+      "EmbeddingsGigaR",
+      "GigaEmbeddings-3B-2025-09"
+    ],
+    "tlsVerified": true
+  },
+  "validation": {
+    "endpoint": "https://api.giga.chat/v1/functions/validate",
+    "inputBoundary": "sdk-only-not-gigachat-acceptance",
+    "summary": "official-validator-authenticated/summary.json",
+    "officialApiPassed": true,
+    "functions": 35,
+    "jsonAiRulesVersion": "1.0.6",
+    "errors": 0,
+    "providerPathAcceptance": false,
+    "warningLocations": [
+      "#/properties/return_parameters",
+      "#/properties/few_shot_examples"
+    ]
+  },
+  "providerPath": {
+    "verified": false,
+    "nativeRegistrationSucceeded": true,
+    "defaultExtensionRestorationVerified": false,
+    "blockedAt": "normal Pi 0.87 tool-session system transcript conversion in installed pi-gigachat 0.6.4 before HTTP",
+    "error": "message.content.filter is not a function",
+    "evidence": "ultra-provider-runtime.json"
+  },
+  "liveSmokes": {
+    "verified": false,
+    "completed": [],
+    "blockedScenarios": [
+      "single-agent",
+      "workflow",
+      "async-wait",
+      "supervisor",
+      "structured-output",
+      "watchdog"
+    ],
+    "reason": "All require the blocked provider transcript/tool boundary; provider migration is explicitly outside current specification scope."
+  },
+  "verifiedAt": "2026-10-19T20:53:45.521Z",
+  "model": "GigaChat-3-Ultra",
+  "promptOnlyInference": {
+    "verified": true,
+    "model": "GigaChat-3-Ultra",
+    "httpStatus": 200,
+    "expectedReplyObserved": true,
+    "evidence": "ultra-provider-runtime.json",
+    "countsAsDelegationSmoke": false
+  },
+  "publishedProvider": {
+    "version": "0.6.4",
+    "peerPiVersion": "0.85.1",
+    "registryLatestChecked": true,
+    "source": "https://registry.npmjs.org/@dev-sergeev%2fpi-gigachat/latest"
+  }
+}

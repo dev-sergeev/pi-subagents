@@ -56,7 +56,7 @@ describe("native runner result publication", { skip: !available ? "pi packages u
 		const completion = new Promise<void>((resolve) => { complete = resolve; });
 		const pi = { events: { on: () => () => {}, emit(event: string) {
 			if (event === SUBAGENT_ASYNC_COMPLETE_EVENT) complete();
-		} }, isHeld: () => false, sendMessage() { delivered++; } };
+		} }, on() {}, isHeld: () => false, sendMessage() { delivered++; } };
 		const notifier = registerSubagentNotify(pi, state, { batchConfig: { enabled: false } });
 		const watcher = createResultWatcher(pi, state, RESULTS_DIR, 60_000, {
 			platform: "darwin", coalesceDelayMs: 0, notifier,
@@ -273,6 +273,7 @@ describe("native runner result publication", { skip: !available ? "pi packages u
 					assert.equal((data as { completionOwnerId?: string }).completionOwnerId, owner);
 					complete();
 				} },
+				on() {},
 				isHeld: () => false,
 				sendMessage() { delivered++; },
 			};

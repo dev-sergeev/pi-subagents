@@ -161,6 +161,7 @@ function createNativeSupervisorHarness(sessionId: string) {
 	const tools = new Map<string, { execute: (id: string, params: Record<string, unknown>) => Promise<unknown> }>();
 	const sent: Array<{ customType?: string; options?: { triggerTurn?: boolean } }> = [];
 	const pi = {
+		on() {},
 		getAllTools: () => [...tools.keys()].map((name) => ({ name })),
 		registerTool: (tool: { name: string; execute: (...args: unknown[]) => Promise<unknown> }) => {
 			tools.set(tool.name, { execute: (id, params) => tool.execute(id, params) });
@@ -1714,7 +1715,7 @@ describe("async job tracker", { skip: !available ? "pi packages not available" :
 				supervisorRequestState: channel.getSupervisorRequestState,
 			});
 			tracker.handleStarted({ id: runId, asyncDir: runDir, agent: "worker", sessionId });
-			await tools.get("subagent_supervisor")!.execute("reply", { action: "reply", replyTo: requestId, message: "Approved" });
+			await tools.get("subagent_supervisor")!.execute("reply", { action: "reply", replyTo: requestId, replyText: "Approved" });
 			assert.equal(channel.getSupervisorRequestState(event), "resolved");
 			await waitForCondition(() => (state.asyncJobs.get(runId)?.controlEventCursor ?? 0) > 0, "resolved control event cursor");
 
@@ -1784,7 +1785,7 @@ describe("async job tracker", { skip: !available ? "pi packages not available" :
 			tracker.handleStarted({ id: runId, asyncDir: runDir, agent: "worker", sessionId });
 			await waitForCondition(() => recorder.events.filter((entry) => entry.channel === SUBAGENT_CONTROL_EVENT).length === 1, "first control event replay");
 
-			await tools.get("subagent_supervisor")!.execute("reply", { action: "reply", replyTo: requestId, message: "Approved" });
+			await tools.get("subagent_supervisor")!.execute("reply", { action: "reply", replyTo: requestId, replyText: "Approved" });
 			writeControlRecord(runDir, event);
 			const eventSize = fs.statSync(path.join(runDir, "events.jsonl")).size;
 			await waitForCondition(() => (state.asyncJobs.get(runId)?.controlEventCursor ?? 0) >= eventSize, "resolved replay cursor");

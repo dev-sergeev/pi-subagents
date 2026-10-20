@@ -1,0 +1,40 @@
+{
+  "evidenceKind": "real-model-argument-generation-diagnostic",
+  "toolExecutionPerformed": false,
+  "countsAsSupervisorDialogueSmoke": false,
+  "providerUnmodified": true,
+  "cases": [
+    {
+      "name": "typed-anyof",
+      "stopReason": "error",
+      "content": [],
+      "errorMessage": "GigaChat out of budget for automatic retries: 1 retries exhausted. Last error: GigaChat HTTP 422: {\"status\":422,\"message\":\"Root schema is not an object schema\"}\n",
+      "toolExecutionPerformed": false
+    },
+    {
+      "name": "typed-oneof",
+      "stopReason": "error",
+      "content": [],
+      "errorMessage": "GigaChat out of budget for automatic retries: 1 retries exhausted. Last error: GigaChat HTTP 422: {\"status\":422,\"message\":\"Root schema is not an object schema\"}\n",
+      "toolExecutionPerformed": false
+    },
+    {
+      "name": "typed-ifthen",
+      "stopReason": "toolUse",
+      "content": [
+        {
+          "type": "toolCall",
+          "id": "gigachat_0a122cbf-8e8e-4a6a-9c70-932369c589b7",
+          "name": "subagent_supervisor",
+          "arguments": {
+            "action": "reply",
+            "replyTo": "741e6ef6-ec73-4c10-8cf0-7d5fd3020e2e"
+          },
+          "thoughtSignature": "gigachat:functions_state_id:01a1583b-08a9-7889-9cc9-279d33dc57b0"
+        }
+      ],
+      "toolExecutionPerformed": false
+    }
+  ],
+  "conclusion": "These typed root anyOf/oneOf probes received HTTP 422 Root schema is not an object schema; typed if/then did not force replyText. No universal ban on JSON Schema composition is inferred; no such schema was installed in production."
+}

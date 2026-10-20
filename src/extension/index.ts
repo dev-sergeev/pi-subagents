@@ -5,7 +5,7 @@
  * - Sync (default): Streams output, renders markdown, tracks usage
  * - Async: Background execution, emits events when done
  *
- * Public execution mode: workflow (workflow: true reply block, script path, or named resource)
+ * Public execution mode: workflow (workflow: "true" reply block, script path, or named resource)
  * Toggle: async parameter (default: true; set asyncByDefault:false in config.json to opt out)
  *
  * Config file: ~/.pi/agent/extensions/subagent/config.json
@@ -21,7 +21,7 @@ import type { ExtensionAPI, ExtensionContext, ToolDefinition } from "@earendil-w
 import { Box, Container, Spacer, Text, type Component } from "@earendil-works/pi-tui";
 import { clearAgentDiscoveryCache, discoverAgentSnapshot, discoverAgents, discoverAgentsAll, type AgentConfig, type AgentScope } from "../agents/agents.ts";
 import { resolveGlobalNpmRoot } from "../agents/global-npm-root.ts";
-import { buildAdvertisedAgentCatalog, buildAdvertisedAgentPrompt } from "../agents/advertised-agent-prompt.ts";
+import { buildAdvertisedAgentPrompt } from "../agents/advertised-agent-prompt.ts";
 import { clearRuntimeAgentsForPi, listRuntimeAgentConfigs, mergeRuntimeAgents } from "../agents/runtime-agent-registry.ts";
 import { registerRuntimeAgentEventListener } from "../agents/runtime-agent-events.ts";
 import { ensureAccessibleDir } from "../shared/accessible-dir.ts";
@@ -62,7 +62,7 @@ import { clearSlashSnapshots, getSlashRenderableSnapshot, resolveSlashMessageDet
 import { resolveWaitToolConfig } from "../runs/background/subagent-wait.ts";
 import { registerWaitTool } from "../runs/background/wait-tool.ts";
 import { registerSubagentToolActivation } from "./tool-activation.ts";
-import { recordedPromptSection, registerPinnedTool, setDeclarationPinning } from "./declaration-pinning.ts";
+import { registerSessionHistoryGuard } from "./session-history-guard.ts";
 import { buildActiveRunsSection } from "./active-runs-prompt.ts";
 import { createWaitSubscriptionManager } from "../runs/background/wait-subscriptions.ts";
 import { drainOutstandingWork } from "../runs/background/auto-drain.ts";
@@ -77,7 +77,7 @@ import { buildSubagentToolDescription, buildSubagentToolPromptMetadata } from ".
 import { formatWorkflowPreflightSummary, normalizeWorkflowPreflight } from "../workflows/workflow-preflight.ts";
 import { runtimeReplacedAbortReason } from "../workflows/workflow-reuse.ts";
 import { finalizeToolResult } from "./tool-result.ts";
-import { flattenSubagentToolOptions } from "./subagent-options.ts";
+import { flattenSubagentToolOptions, prepareSubagentToolArguments } from "./subagent-options.ts";
 import { collectGoalContinuationNotices } from "../missions/goal-driver.ts";
 import { restoreForegroundRunHistory } from "../runs/foreground/foreground-history.ts";
 import { resolveMissionStoreLocation } from "../missions/store.ts";
@@ -289,7 +289,7 @@ export default function registerSubagentExtension(pi: ExtensionAPI): void {
 	cleanupOldChainDirs();
 
 	const config = loadConfig();
-	setDeclarationPinning(pi, config.pinToolDeclarations !== false);
+	registerSessionHistoryGuard(pi);
 	const waitToolConfig = resolveWaitToolConfig(config.waitTool);
 	const asyncByDefault = resolveAsyncByDefault(config);
 	const fleetViewEnabled = config.fleetView !== false;
@@ -679,6 +679,7 @@ export default function registerSubagentExtension(pi: ExtensionAPI): void {
 		description: buildSubagentToolDescription(config, { disabledFeatures }),
 		...buildSubagentToolPromptMetadata(config, disabledFeatures),
 		parameters,
+		prepareArguments: prepareSubagentToolArguments,
 
 		async execute(id, params, signal, onUpdate, ctx) {
 			return finalizeToolResult(await executeSubagentCollapsed(id, flattenSubagentToolOptions(params, disabledFeatures), signal ?? new AbortController().signal, onUpdate, ctx));
@@ -697,7 +698,7 @@ export default function registerSubagentExtension(pi: ExtensionAPI): void {
 			const preflight = args.options?.preflight ?? (args as { preflight?: unknown }).preflight;
 			if (args.workflow !== undefined)
 				return new Text(
-					`${title}${gap}${theme.fg("accent", args.workflow === true || args.workflow === "true" ? "workflow (reply block)" : `workflow ${String(args.workflow)}`)}${args.async === true ? `${gap}${theme.fg("warning", "[async]")}` : ""}${preflight !== undefined ? `${gap}${theme.fg("dim", formatWorkflowPreflightCall(preflight))}` : ""}`,
+					`${title}${gap}${theme.fg("accent", args.workflow === "true" ? "workflow (reply block)" : `workflow ${String(args.workflow)}`)}${args.async === true ? `${gap}${theme.fg("warning", "[async]")}` : ""}${preflight !== undefined ? `${gap}${theme.fg("dim", formatWorkflowPreflightCall(preflight))}` : ""}`,
 					0,
 					0,
 				);
@@ -719,22 +720,20 @@ export default function registerSubagentExtension(pi: ExtensionAPI): void {
 
 	};
 
-	registerPinnedTool(pi, tool);
-	// Declared with the same definition children use, so a fork's tool list equals this session's.
-	registerPinnedTool(pi, topLevelSupervisorTool());
+	pi.registerTool(tool);
+	// Use the same current definition in parent and child sessions.
+	pi.registerTool(topLevelSupervisorTool());
 
 	pi.on("before_agent_start", async (event, ctx) => {
 		await waitForAdvertisement();
 		const sessionId = state.currentSessionId ?? resolveCurrentSessionId(ctx.sessionManager);
-		// Structured sections let Pi append a transcript delta instead of replacing the
-		// cached system prompt. Set the section on every turn it applies: Pi rebuilds the
-		// options each turn, and an unset turn records a removal.
-		// Active runs are listed even when only subagents_enable is selected, e.g. runs re-adopted after a resume.
+		// Preserve earlier extensions' prompt changes and use the old host's returned-string hook.
 		const activeRuns = config.activeRunsPrompt === true ? buildActiveRunsSection(state.asyncJobs.values(), sessionId) : undefined;
-		if (activeRuns) event.systemPromptOptions.sections.active_subagents = activeRuns;
-		if (!event.systemPromptOptions.selectedTools.includes("subagent")) return;
-		const catalog = buildAdvertisedAgentCatalog(advertisedAgents, resolveCurrentSubagentCapabilityCeiling(sessionId), recordedPromptSection(pi, "advertised_subagents"));
-		if (catalog) event.systemPromptOptions.sections.advertised_subagents = catalog;
+		const advertised = pi.getActiveTools().includes("subagent")
+			? buildAdvertisedAgentPrompt(advertisedAgents, resolveCurrentSubagentCapabilityCeiling(sessionId))
+			: undefined;
+		const additions = [activeRuns ? `<active_subagents>\n${activeRuns}\n</active_subagents>` : undefined, advertised].filter(Boolean);
+		if (additions.length > 0) return { systemPrompt: [event.systemPrompt, ...additions].join("\n\n") };
 	});
 
 	registerWaitTool(pi, state, waitToolConfig.enabled, waitSubscriptionManager, waitToolConfig.defaultTimeoutMs, undefined, supervisorChannel.hasPendingRequests);
@@ -742,7 +741,7 @@ export default function registerSubagentExtension(pi: ExtensionAPI): void {
 	pi.on("agent_end", async (_event, ctx) => {
 		try {
 			// The run is still active here, so its signal tells a user stop (Esc) apart from a finished or failed run.
-			// Pi skips agent_before_settle after an abort. Background runs keep going, but they must not restart the parent.
+			// Background runs keep going after an abort, but must not restart the stopped parent.
 			if (ctx.hasUI && ctx.signal?.aborted) {
 				parentWake.userAborted();
 				const active = activeAsyncJobCount();
@@ -1174,7 +1173,7 @@ export default function registerSubagentExtension(pi: ExtensionAPI): void {
 
 	registerSubagentToolActivation(pi, {
 		mode: config.toolActivation,
-		// The channel's session_start poll already declared the reply tool for these; the replay must not drop it.
+		// A pending child request must keep the parent's reply tool active after restoration.
 		hasPendingSupervisorRequest: () => [...supervisorChannel.pending.values()].some((request) => request.expectsReply),
 		advertisedPrompt: async () => {
 			await waitForAdvertisement();

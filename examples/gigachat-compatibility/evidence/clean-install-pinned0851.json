@@ -1,0 +1,25 @@
+{
+  "evidenceKind": "isolated-compiled-package-smoke",
+  "platform": "darwin-arm64",
+  "nodeVersion": "24.22.0",
+  "sdkVersion": "0.85.1",
+  "typeboxVersion": "1.3.7",
+  "command": "node --experimental-strip-types test/smoke/clean-install.mjs <fresh-directory> 0.85.1",
+  "exitCode": 0,
+  "packedPackageSha256": "92efb587acfd840c3bc46aa69ea571bedae52d3d7f13a9b0e3504d9b0de5ed1b",
+  "hostAndExtensionInstalledSeparately": true,
+  "hostPeerAliasesAndVersionsAsserted": true,
+  "compiledEntryLoadedThroughJiti": true,
+  "compiledEntryLoadMs": 801,
+  "childLog": [
+    "PASS public SDK/default child factory: local prompt, API identity, startup/shutdown",
+    "PASS native coordinator/leaf tools: real SDK registration and explicit allowlists"
+  ],
+  "packedSelectionLog": "PASS packed node_modules selects compiled JavaScript",
+  "liveGigachatInference": false,
+  "linuxStandaloneValidated": false,
+  "parentReplyInput": "replyText",
+  "all35CompiledFunctionHashesAndBodiesMatchFinalProviderCapture": true,
+  "providerCapture": "provider-pinned0851-final/manifest.json",
+  "note": "Receipt for the final replyText isolated smoke candidate, compiled and packed from this source. The host SDK and extension installations are separate. No Linux standalone success is inferred."
+}

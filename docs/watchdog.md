@@ -75,6 +75,8 @@ Child watchdog findings are lifted into the parent in three ways:
 - **`WATCHDOG.md`** standing instructions, read fresh on every review: `<project>/.pi/WATCHDOG.md` first, then `~/.pi/agent/WATCHDOG.md`, capped at 8,000 characters. Set `guidance.watchdogMd: false` to ignore them.
 - **LSP diagnostics** from `typescript-language-server`, auto-detected in `node_modules/.bin` or `PATH`; it is never installed and never run over the whole workspace. Errors become blockers, warnings concerns, and info/hints stay in status.
 
+Watchdog tool declarations include explicit parameter types and descriptions by default. `watchdog_warn.category` labels an actionable finding (omitting it selects `other`). The optional `watchdog_ask` takes a focused `question` and concrete `evidence`, capped at 1,000 and 2,000 characters; it yields the review rather than requesting approval. Permission arbitration remains separate: `watchdog_permission_decision` accepts `decision: "approve" | "deny"` and a concise `reason` for the exact child tool call only. These declaration details do not change review triggers, permissions, or delivery.
+
 ## Choosing a model
 
 One model setting serves both boundary and cadence reviews per endpoint. Use a strong complementary model for rare adversarial boundary reviews, or a cheap one for frequent cadence monitoring.

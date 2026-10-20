@@ -1,0 +1,442 @@
+{
+  "format": 1,
+  "complete": true,
+  "evidenceKind": "pi-gigachat-http-functions",
+  "capturedAt": "2026-10-20T07:17:14.367Z",
+  "boundary": "Real Pi SDK -> installed GigaChat provider -> serialized HTTP POST functions; fetch intercepted before inference",
+  "inferenceExecuted": false,
+  "activation": "Actual registered subagents_enable.execute invoked directly with SDK context",
+  "herdr": "Local real bridge registration only; no remote Herdr execution",
+  "model": "gigachat-compatibility/GigaChat-3-Ultra",
+  "packageVersion": "0.79.1",
+  "scenarios": [
+    {
+      "name": "cold-loader",
+      "expected": [
+        "subagents_enable"
+      ],
+      "received": [
+        "subagents_enable"
+      ],
+      "sdkRequests": 1,
+      "providerHttpBoundaries": 1
+    },
+    {
+      "name": "ordinary",
+      "expected": [
+        "subagent",
+        "bg_wait",
+        "subagent_supervisor"
+      ],
+      "received": [
+        "subagents_enable",
+        "subagent",
+        "contact_supervisor",
+        "subagent_supervisor",
+        "bg_wait"
+      ],
+      "sdkRequests": 1,
+      "providerHttpBoundaries": 1
+    },
+    {
+      "name": "structured-workflows",
+      "expected": [
+        "subagent",
+        "bg_wait",
+        "subagent_supervisor"
+      ],
+      "received": [
+        "subagent",
+        "contact_supervisor",
+        "subagent_supervisor",
+        "bg_wait"
+      ],
+      "sdkRequests": 1,
+      "providerHttpBoundaries": 1
+    },
+    {
+      "name": "fanout",
+      "expected": [
+        "subagent",
+        "bg_wait",
+        "subagent_supervisor",
+        "contact_supervisor"
+      ],
+      "received": [
+        "bg_wait",
+        "subagent",
+        "contact_supervisor",
+        "subagent_supervisor"
+      ],
+      "sdkRequests": 1,
+      "providerHttpBoundaries": 1
+    },
+    {
+      "name": "fanout-structured-workflows",
+      "expected": [
+        "subagent",
+        "bg_wait",
+        "subagent_supervisor",
+        "contact_supervisor"
+      ],
+      "received": [
+        "bg_wait",
+        "subagent",
+        "contact_supervisor",
+        "subagent_supervisor"
+      ],
+      "sdkRequests": 1,
+      "providerHttpBoundaries": 1
+    },
+    {
+      "name": "native-child",
+      "expected": [
+        "contact_supervisor",
+        "bg_wait",
+        "subagent_command",
+        "bash"
+      ],
+      "received": [
+        "bg_wait",
+        "bash",
+        "subagent_command",
+        "contact_supervisor"
+      ],
+      "sdkRequests": 1,
+      "providerHttpBoundaries": 1
+    },
+    {
+      "name": "structured-output-undescribed-no-report",
+      "expected": [
+        "structured_output"
+      ],
+      "received": [
+        "bg_wait",
+        "structured_output"
+      ],
+      "sdkRequests": 1,
+      "providerHttpBoundaries": 1
+    },
+    {
+      "name": "structured-output-undescribed-report",
+      "expected": [
+        "structured_output"
+      ],
+      "received": [
+        "bg_wait",
+        "structured_output"
+      ],
+      "sdkRequests": 1,
+      "providerHttpBoundaries": 1
+    },
+    {
+      "name": "structured-output-described-no-report",
+      "expected": [
+        "structured_output"
+      ],
+      "received": [
+        "bg_wait",
+        "structured_output"
+      ],
+      "sdkRequests": 1,
+      "providerHttpBoundaries": 1
+    },
+    {
+      "name": "structured-output-described-report",
+      "expected": [
+        "structured_output"
+      ],
+      "received": [
+        "bg_wait",
+        "structured_output"
+      ],
+      "sdkRequests": 1,
+      "providerHttpBoundaries": 1
+    },
+    {
+      "name": "herdr",
+      "expected": [
+        "contact_supervisor"
+      ],
+      "received": [
+        "contact_supervisor"
+      ],
+      "sdkRequests": 1,
+      "providerHttpBoundaries": 1
+    },
+    {
+      "name": "watchdog-review",
+      "expected": [
+        "watchdog_warn",
+        "watchdog_ask",
+        "watchdog_diff"
+      ],
+      "received": [
+        "watchdog_warn",
+        "watchdog_diff",
+        "watchdog_ask"
+      ],
+      "sdkRequests": 1,
+      "providerHttpBoundaries": 1
+    },
+    {
+      "name": "watchdog-permission",
+      "expected": [
+        "watchdog_permission_decision"
+      ],
+      "received": [
+        "watchdog_permission_decision"
+      ],
+      "sdkRequests": 1,
+      "providerHttpBoundaries": 1
+    }
+  ],
+  "cases": [
+    {
+      "id": "001-cold-loader-subagents_enable",
+      "scenario": "cold-loader",
+      "name": "subagents_enable",
+      "file": "functions/001-cold-loader-subagents_enable.json",
+      "sha256": "79de3f5a33325c3373a3e59d2321ed4f604b01efe94ebc74178205b1fb72cfd1"
+    },
+    {
+      "id": "002-ordinary-subagents_enable",
+      "scenario": "ordinary",
+      "name": "subagents_enable",
+      "file": "functions/002-ordinary-subagents_enable.json",
+      "sha256": "79de3f5a33325c3373a3e59d2321ed4f604b01efe94ebc74178205b1fb72cfd1"
+    },
+    {
+      "id": "003-ordinary-subagent",
+      "scenario": "ordinary",
+      "name": "subagent",
+      "file": "functions/003-ordinary-subagent.json",
+      "sha256": "b14a82279c6490d38de53b7ee5e2e579d01ab7186c184b760404cdfa05960188"
+    },
+    {
+      "id": "004-ordinary-contact_supervisor",
+      "scenario": "ordinary",
+      "name": "contact_supervisor",
+      "file": "functions/004-ordinary-contact_supervisor.json",
+      "sha256": "672fc618aa5a1c82551c95a3c8723465090e02373707395c40c678bc81bc4fd8"
+    },
+    {
+      "id": "005-ordinary-subagent_supervisor",
+      "scenario": "ordinary",
+      "name": "subagent_supervisor",
+      "file": "functions/005-ordinary-subagent_supervisor.json",
+      "sha256": "36fa23f9f5792d940f448de41fee7a403d85950986152dac68ded726612f42d0"
+    },
+    {
+      "id": "006-ordinary-bg_wait",
+      "scenario": "ordinary",
+      "name": "bg_wait",
+      "file": "functions/006-ordinary-bg_wait.json",
+      "sha256": "246eb00bcb6ec54385211219ecd04c009ca3d966faa9def159910894e2cfdc33"
+    },
+    {
+      "id": "007-structured-workflows-subagent",
+      "scenario": "structured-workflows",
+      "name": "subagent",
+      "file": "functions/007-structured-workflows-subagent.json",
+      "sha256": "c40d34a47b85af13a91ef01e4747026e77ae650f6ff44c962272b54a5dd35034"
+    },
+    {
+      "id": "008-structured-workflows-contact_supervisor",
+      "scenario": "structured-workflows",
+      "name": "contact_supervisor",
+      "file": "functions/008-structured-workflows-contact_supervisor.json",
+      "sha256": "672fc618aa5a1c82551c95a3c8723465090e02373707395c40c678bc81bc4fd8"
+    },
+    {
+      "id": "009-structured-workflows-subagent_supervisor",
+      "scenario": "structured-workflows",
+      "name": "subagent_supervisor",
+      "file": "functions/009-structured-workflows-subagent_supervisor.json",
+      "sha256": "36fa23f9f5792d940f448de41fee7a403d85950986152dac68ded726612f42d0"
+    },
+    {
+      "id": "010-structured-workflows-bg_wait",
+      "scenario": "structured-workflows",
+      "name": "bg_wait",
+      "file": "functions/010-structured-workflows-bg_wait.json",
+      "sha256": "246eb00bcb6ec54385211219ecd04c009ca3d966faa9def159910894e2cfdc33"
+    },
+    {
+      "id": "011-fanout-bg_wait",
+      "scenario": "fanout",
+      "name": "bg_wait",
+      "file": "functions/011-fanout-bg_wait.json",
+      "sha256": "e201b0c38b2333985aa45de9cda3cbcfaf618031b2ccde039b9e8a26d1cc4bf9"
+    },
+    {
+      "id": "012-fanout-subagent",
+      "scenario": "fanout",
+      "name": "subagent",
+      "file": "functions/012-fanout-subagent.json",
+      "sha256": "78ad7f6451f0e52c16cfebeb147804adbc01a27bbe1fa514deba826a2a3e465a"
+    },
+    {
+      "id": "013-fanout-contact_supervisor",
+      "scenario": "fanout",
+      "name": "contact_supervisor",
+      "file": "functions/013-fanout-contact_supervisor.json",
+      "sha256": "672fc618aa5a1c82551c95a3c8723465090e02373707395c40c678bc81bc4fd8"
+    },
+    {
+      "id": "014-fanout-subagent_supervisor",
+      "scenario": "fanout",
+      "name": "subagent_supervisor",
+      "file": "functions/014-fanout-subagent_supervisor.json",
+      "sha256": "36fa23f9f5792d940f448de41fee7a403d85950986152dac68ded726612f42d0"
+    },
+    {
+      "id": "015-fanout-structured-workflows-bg_wait",
+      "scenario": "fanout-structured-workflows",
+      "name": "bg_wait",
+      "file": "functions/015-fanout-structured-workflows-bg_wait.json",
+      "sha256": "e201b0c38b2333985aa45de9cda3cbcfaf618031b2ccde039b9e8a26d1cc4bf9"
+    },
+    {
+      "id": "016-fanout-structured-workflows-subagent",
+      "scenario": "fanout-structured-workflows",
+      "name": "subagent",
+      "file": "functions/016-fanout-structured-workflows-subagent.json",
+      "sha256": "d25d5ce9468c94a559c0597e738135418061ea441778398d7ad423f19f97f9ea"
+    },
+    {
+      "id": "017-fanout-structured-workflows-contact_supervisor",
+      "scenario": "fanout-structured-workflows",
+      "name": "contact_supervisor",
+      "file": "functions/017-fanout-structured-workflows-contact_supervisor.json",
+      "sha256": "672fc618aa5a1c82551c95a3c8723465090e02373707395c40c678bc81bc4fd8"
+    },
+    {
+      "id": "018-fanout-structured-workflows-subagent_supervisor",
+      "scenario": "fanout-structured-workflows",
+      "name": "subagent_supervisor",
+      "file": "functions/018-fanout-structured-workflows-subagent_supervisor.json",
+      "sha256": "36fa23f9f5792d940f448de41fee7a403d85950986152dac68ded726612f42d0"
+    },
+    {
+      "id": "019-native-child-bg_wait",
+      "scenario": "native-child",
+      "name": "bg_wait",
+      "file": "functions/019-native-child-bg_wait.json",
+      "sha256": "e201b0c38b2333985aa45de9cda3cbcfaf618031b2ccde039b9e8a26d1cc4bf9"
+    },
+    {
+      "id": "020-native-child-bash",
+      "scenario": "native-child",
+      "name": "bash",
+      "file": "functions/020-native-child-bash.json",
+      "sha256": "e38507851b4ab89c1a97eff619ec31e0abc8df28392da86cadbadd248a278763"
+    },
+    {
+      "id": "021-native-child-subagent_command",
+      "scenario": "native-child",
+      "name": "subagent_command",
+      "file": "functions/021-native-child-subagent_command.json",
+      "sha256": "da0980cbf96bc7b6cd5a4c20e5a95a59becb087269225e8b07bcd11ba92a9f57"
+    },
+    {
+      "id": "022-native-child-contact_supervisor",
+      "scenario": "native-child",
+      "name": "contact_supervisor",
+      "file": "functions/022-native-child-contact_supervisor.json",
+      "sha256": "672fc618aa5a1c82551c95a3c8723465090e02373707395c40c678bc81bc4fd8"
+    },
+    {
+      "id": "023-structured-output-undescribed-no-report-bg_wait",
+      "scenario": "structured-output-undescribed-no-report",
+      "name": "bg_wait",
+      "file": "functions/023-structured-output-undescribed-no-report-bg_wait.json",
+      "sha256": "e201b0c38b2333985aa45de9cda3cbcfaf618031b2ccde039b9e8a26d1cc4bf9"
+    },
+    {
+      "id": "024-structured-output-undescribed-no-report-structured_output",
+      "scenario": "structured-output-undescribed-no-report",
+      "name": "structured_output",
+      "file": "functions/024-structured-output-undescribed-no-report-structured_output.json",
+      "sha256": "39416860ee8b4b0f81897ddc1def3786f21e37aa4f5135782831e4424a5e3a01"
+    },
+    {
+      "id": "025-structured-output-undescribed-report-bg_wait",
+      "scenario": "structured-output-undescribed-report",
+      "name": "bg_wait",
+      "file": "functions/025-structured-output-undescribed-report-bg_wait.json",
+      "sha256": "e201b0c38b2333985aa45de9cda3cbcfaf618031b2ccde039b9e8a26d1cc4bf9"
+    },
+    {
+      "id": "026-structured-output-undescribed-report-structured_output",
+      "scenario": "structured-output-undescribed-report",
+      "name": "structured_output",
+      "file": "functions/026-structured-output-undescribed-report-structured_output.json",
+      "sha256": "4d7999b939decd4e62341afdb8ee03aa3f9a5388d9907b10d2357fb33aa5058b"
+    },
+    {
+      "id": "027-structured-output-described-no-report-bg_wait",
+      "scenario": "structured-output-described-no-report",
+      "name": "bg_wait",
+      "file": "functions/027-structured-output-described-no-report-bg_wait.json",
+      "sha256": "e201b0c38b2333985aa45de9cda3cbcfaf618031b2ccde039b9e8a26d1cc4bf9"
+    },
+    {
+      "id": "028-structured-output-described-no-report-structured_output",
+      "scenario": "structured-output-described-no-report",
+      "name": "structured_output",
+      "file": "functions/028-structured-output-described-no-report-structured_output.json",
+      "sha256": "fd89372499faf4fb47e2deae2db5880f5840e5144a6d61bacfb73f8236660dab"
+    },
+    {
+      "id": "029-structured-output-described-report-bg_wait",
+      "scenario": "structured-output-described-report",
+      "name": "bg_wait",
+      "file": "functions/029-structured-output-described-report-bg_wait.json",
+      "sha256": "e201b0c38b2333985aa45de9cda3cbcfaf618031b2ccde039b9e8a26d1cc4bf9"
+    },
+    {
+      "id": "030-structured-output-described-report-structured_output",
+      "scenario": "structured-output-described-report",
+      "name": "structured_output",
+      "file": "functions/030-structured-output-described-report-structured_output.json",
+      "sha256": "65cb77875a63bd0e959527385c562f96af1a56f78d345f7c6b235094d3179fc4"
+    },
+    {
+      "id": "031-herdr-contact_supervisor",
+      "scenario": "herdr",
+      "name": "contact_supervisor",
+      "file": "functions/031-herdr-contact_supervisor.json",
+      "sha256": "672fc618aa5a1c82551c95a3c8723465090e02373707395c40c678bc81bc4fd8"
+    },
+    {
+      "id": "032-watchdog-review-watchdog_warn",
+      "scenario": "watchdog-review",
+      "name": "watchdog_warn",
+      "file": "functions/032-watchdog-review-watchdog_warn.json",
+      "sha256": "6f1c8105971896cb8e974c4356a6c6d7d4d0d10d878e238ce0385743d5607850"
+    },
+    {
+      "id": "033-watchdog-review-watchdog_diff",
+      "scenario": "watchdog-review",
+      "name": "watchdog_diff",
+      "file": "functions/033-watchdog-review-watchdog_diff.json",
+      "sha256": "cb86345f6c1b111051315c6c6ddc3a972fad37d5d97f6dd0ad9e7d9fbd2b195c"
+    },
+    {
+      "id": "034-watchdog-review-watchdog_ask",
+      "scenario": "watchdog-review",
+      "name": "watchdog_ask",
+      "file": "functions/034-watchdog-review-watchdog_ask.json",
+      "sha256": "f91134b67aa1186e77d77557be6d3d68a7e2830b828ec080d5c5e42f460c7226"
+    },
+    {
+      "id": "035-watchdog-permission-watchdog_permission_decision",
+      "scenario": "watchdog-permission",
+      "name": "watchdog_permission_decision",
+      "file": "functions/035-watchdog-permission-watchdog_permission_decision.json",
+      "sha256": "96b1162eb236747ab86d54bbbf32852e2da32831baa58899996d1a8cde42941a"
+    }
+  ],
+  "providerEntrySha256": "b854b78b2710a03332c43168cdd792ff1e134d46587ce84a885548d4ab551196"
+}

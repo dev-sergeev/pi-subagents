@@ -84,7 +84,7 @@ function fakePi(input: {
 			async reload() { this.runtime = input.pending?.() ?? {}; }
 			getExtensions() { return { extensions: [], errors: [], runtime: this.runtime }; }
 		},
-		SessionManager: { inMemory: () => ({}) },
+		SessionManager: { inMemory: () => ({ getBranch: () => [] }) },
 		resolveCliModel: ({ modelRuntime }) => {
 			input.onResolve?.(modelRuntime as unknown as Runtime);
 			return { error: "stop" };

@@ -22,10 +22,25 @@ jobs:
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
+      - name: Verify tagged fork release
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+          if (process.env.GITHUB_REPOSITORY !== "dev-sergeev/pi-subagents"
+            || pkg.name !== "@dev-sergeev/pi-subagents"
+            || pkg.private !== true
+            || process.env.GITHUB_REF_TYPE !== "tag"
+            || process.env.GITHUB_REF_NAME !== `v${pkg.version}`) {
+            throw new Error("Release requires the matching version tag in the scoped fork; source-root publication is forbidden.");
+          }
+          NODE
       - name: Install devDependencies
         run: npm ci --ignore-scripts
       - name: Run tests
         run: npm run test:all
+      - name: Native tool activation contract
+        run: npm run test:smoke:tool-activation
       - name: Build published package
         run: npm run build:pkg
       - name: Publish to npm

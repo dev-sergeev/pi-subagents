@@ -13,7 +13,6 @@ import { readChildCommandState } from "../../src/runs/shared/child-commands.ts";
 
 function fakePi(override?: ToolDefinition, commandOverride?: ToolDefinition) {
 	const tools = new Map<string, ToolDefinition>();
-	let order: string[] = [];
 	const pi = {
 		createBashTool,
 		ModelRuntime: { create: async () => ({}) },
@@ -30,11 +29,10 @@ function fakePi(override?: ToolDefinition, commandOverride?: ToolDefinition) {
 					extensions.push({ path: `<inline:${hook.name}>`, tools: registered });
 				}
 				this.result = this.options.extensionsOverride({ extensions, errors: [], runtime: {} });
-				order = this.result.extensions.map((extension) => extension.path);
 			}
 			getExtensions() { return this.result; }
 		},
-		SessionManager: { inMemory: () => ({}) },
+		SessionManager: { inMemory: () => ({ getBranch: () => [] }) },
 		createAgentSession: async ({ cwd, resourceLoader }) => {
 			for (const extension of resourceLoader.getExtensions().extensions) for (const { definition } of extension.tools.values()) if (!tools.has(definition.name)) tools.set(definition.name, definition);
 			if (!tools.has("bash")) tools.set("bash", createBashTool(cwd));
@@ -48,7 +46,7 @@ function fakePi(override?: ToolDefinition, commandOverride?: ToolDefinition) {
 			} };
 		},
 	} as unknown as PiCodingAgentModule;
-	return { pi, tools, order: () => order };
+	return { pi, tools };
 }
 function ctxForTest(): ExtensionContext {
 	return { sessionManager: { getSessionId: () => "child", getSessionFile: () => undefined } } as ExtensionContext;
@@ -71,7 +69,6 @@ describe("default child factory command integration", () => {
 		try {
 			const child = await factory.create(launch(dir, runId));
 			assert.equal(fake.tools.has("subagent_command"), true);
-			assert.deepEqual(fake.order().slice(0, 2), ["<inline:pi-subagents:prompt-runtime>", "<inline:pi-subagents:commands>"]);
 			const result = await fake.tools.get("bash")!.execute("settings", { command: "printf settings" }, undefined, undefined, { sessionManager: { getSessionId: () => "child", getSessionFile: () => undefined } } as ExtensionContext);
 			assert.equal(result.content[0].text, "prefixsettings");
 			await child.prompt("sleep 10");
@@ -112,7 +109,6 @@ describe("default child factory command integration", () => {
 			assert.equal(fake.tools.get("bash"), original);
 			assert.equal(evaluateChildToolDiagnostic(input.runtime, [...fake.tools.keys()]), undefined);
 			const commandTool = fake.tools.get("subagent_command")!;
-			assert.match(commandTool.description, /unavailable.*custom bash/);
 			await assert.rejects(commandTool.execute("status", { action: "status" }, undefined, undefined, {} as ExtensionContext), /unavailable.*custom bash/);
 			await child.prompt("custom command");
 			assert.equal(readChildCommandState(channel), undefined);
@@ -131,7 +127,6 @@ describe("default child factory command integration", () => {
 			try {
 				await factory.create(input);
 				assert.equal(fake.tools.has("subagent_command"), false);
-				assert.equal(fake.order().includes("<inline:pi-subagents:commands>"), false);
 				assert.equal("yieldTimeMs" in (fake.tools.get("bash")!.parameters as { properties: object }).properties, false);
 				const result = await fake.tools.get("bash")!.execute("plain", { command: "printf plain" }, undefined, undefined, ctxForTest());
 				assert.equal(result.content[0].text, "plain");

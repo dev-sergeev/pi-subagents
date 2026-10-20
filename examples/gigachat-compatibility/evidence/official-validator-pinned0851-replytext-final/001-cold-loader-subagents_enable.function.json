@@ -1,0 +1,8 @@
+{
+  "name": "subagents_enable",
+  "description": "Enable subagent tools for the next request; launches nothing. Delegate only when the request or applicable instructions authorize it; complexity alone is not authorization. Otherwise work directly. Use also for existing-run management.",
+  "parameters": {
+    "type": "object",
+    "properties": {}
+  }
+}

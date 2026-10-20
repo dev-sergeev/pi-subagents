@@ -1,0 +1,9 @@
+{
+  "evidenceKind": "sdk-only-not-gigachat-acceptance",
+  "officialValidation": false,
+  "checkedFunctions": 35,
+  "checkedScenarios": 13,
+  "problems": [],
+  "matchesFinalCollection": true,
+  "matchesBuiltPackage": true
+}

@@ -1,0 +1,26 @@
+{
+  "name": "watchdog_permission_decision",
+  "description": "Approve or deny this exact child tool call. Call exactly once.",
+  "parameters": {
+    "type": "object",
+    "required": [
+      "decision",
+      "reason"
+    ],
+    "properties": {
+      "decision": {
+        "type": "string",
+        "enum": [
+          "approve",
+          "deny"
+        ],
+        "description": "Approve or deny only the exact child tool call presented for arbitration; deny when uncertain."
+      },
+      "reason": {
+        "type": "string",
+        "description": "One concise reason for this exact decision."
+      }
+    },
+    "additionalProperties": false
+  }
+}

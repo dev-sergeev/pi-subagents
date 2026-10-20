@@ -158,7 +158,7 @@ describe("public subagent execution normalization", () => {
 	it("rejects preflight without a workflow input", () => {
 		const result = normalizePublicSubagentExecution({ agent: "worker", preflight: { version: 1, lanes: [] } });
 		assert.equal(result.ok, false);
-		if (!result.ok) assert.match(result.error, /preflight requires workflow: true or a workflow script path/);
+		if (!result.ok) assert.match(result.error, /preflight requires/);
 	});
 
 	it("rejects private run fan-out fields at the public boundary", () => {

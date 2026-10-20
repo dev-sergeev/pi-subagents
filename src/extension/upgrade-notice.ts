@@ -40,6 +40,6 @@ export async function showUpgradeNotice(
 		`pi-subagents updated from ${lastSeen} to ${version}`,
 		...bullets.slice(0, 5),
 		...(bullets.length > 5 ? [`...and ${bullets.length - 5} more`] : []),
-		"Changelog: https://github.com/nicobailon/pi-subagents/blob/main/CHANGELOG.md",
+		"Changelog: https://github.com/dev-sergeev/pi-subagents/blob/gigachat/CHANGELOG.md",
 	].join("\n"), "info");
 }

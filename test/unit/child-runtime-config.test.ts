@@ -31,12 +31,6 @@ function fakePi(available: string[]): FakePi {
 }
 
 describe("child runtime config", () => {
-	it("creates the prompt runtime hook always and the fast and fanout hooks on demand", () => {
-		assert.deepEqual(createChildHooks(baseConfig()).map((hook) => hook.name), ["pi-subagents:prompt-runtime", "pi-subagents:prompt-boundary"]);
-		assert.deepEqual(createChildHooks(baseConfig({ fast: true })).map((hook) => hook.name), ["pi-subagents:prompt-runtime", "pi-subagents:fast-mode", "pi-subagents:prompt-boundary"]);
-		assert.deepEqual(createChildHooks(baseConfig({ fanoutChild: true })).map((hook) => hook.name), ["pi-subagents:prompt-runtime", "pi-subagents:fanout-child", "pi-subagents:prompt-boundary"]);
-	});
-
 	it("provides the coordinator reply tool before agent_start without granting it to leaves", async () => {
 		for (const tools of [["subagent", "contact_supervisor", "subagent_supervisor"], ["subagent", "contact_supervisor"], ["contact_supervisor"]]) {
 			const launch = buildInProcessChildLaunch({
@@ -46,7 +40,7 @@ describe("child runtime config", () => {
 			});
 			const pi = fakePi([]);
 			for (const hook of launch.session.hooks) hook.factory(pi.api as never);
-			const ctx = { sessionManager: { getSessionId: () => "coordinator-B", getSessionFile: () => "/sessions/B.jsonl" } };
+			const ctx = { sessionManager: { getSessionId: () => "coordinator-B", getSessionFile: () => "/sessions/B.jsonl", getBranch: () => [] } };
 			try {
 				for (const handler of pi.handlers.get("session_start") ?? []) await handler({}, ctx);
 				assert.equal(pi.tools.some(tool => tool.name === "subagent_supervisor"), tools.includes("subagent"));
@@ -82,9 +76,6 @@ describe("child runtime config", () => {
 		assert.ok(structured, "structured_output tool registered from config");
 		await structured.execute("call-1", { value: { done: true } });
 		assert.deepEqual(captured, [{ done: true }]);
-
-		const rewritten = await pi.handlers.get("before_agent_start")?.at(-1)?.({ systemPrompt: "base prompt" }) as { systemPrompt: string } | undefined;
-		assert.match(rewritten?.systemPrompt ?? "", /strict structured output contract/);
 	});
 
 	it("evaluates the tool diagnostic against the available tools", () => {

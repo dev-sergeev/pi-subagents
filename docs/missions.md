@@ -33,10 +33,10 @@ const created = subagent({
   }
 })
 // After a ```js workflow block that runs the approved auth refresh plan:
-subagent({ workflow: true, options: { missionId: "<mission-id>" } })
+subagent({ workflow: "true", options: { missionId: "<mission-id>" } })
 
 // Or create and attach in one launch
-subagent({ workflow: true, options: { mission: { title: "Ship auth refresh" } } })
+subagent({ workflow: "true", options: { mission: { title: "Ship auth refresh" } } })
 ```
 
 ### Goal missions
@@ -96,7 +96,7 @@ return runs.run("main", { agent: "reviewer", task: "Review the current diff." })
 subagent({
   action: "schedule.create",
   id: "evening-review",
-  workflow: true,
+  workflow: "true",
   options: {
     name: "Evening review",
     at: "+30m",
@@ -126,7 +126,7 @@ Fixed intervals support `m`, `h`, `d`, and `w` units and advance from the planne
 Create a quiet recurring workflow whose successful completions stay visible but do not wake the parent session:
 
 ```ts
-subagent({ action: "schedule.create", id: "nightly-sweep", workflow: true, options: { every: "24h", quiet: true } })
+subagent({ action: "schedule.create", id: "nightly-sweep", workflow: "true", options: { every: "24h", quiet: true } })
 ```
 
 Manage schedules with `schedule.list`, `schedule.show`, `schedule.history`, `schedule.pause`, `schedule.resume`, `schedule.run`, `schedule.run-due`, and `schedule.delete`.

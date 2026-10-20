@@ -1,0 +1,334 @@
+{
+  "historicalDiagnostic": true,
+  "approvedFollowup": { "parentReplyInput": "replyText", "legacyMessageAlias": false, "providerMigration": false },
+  "evidenceKind": "real-model-argument-generation-diagnostic",
+  "model": "GigaChat-3-Ultra",
+  "sdkVersion": "0.85.1",
+  "providerVersion": "0.6.4",
+  "providerUnmodified": true,
+  "toolExecutionPerformed": false,
+  "countsAsSupervisorDialogueSmoke": false,
+  "productionSchemaChanged": false,
+  "cases": [
+    {
+      "name": "current-english",
+      "stopReason": "toolUse",
+      "content": [
+        {
+          "type": "toolCall",
+          "id": "gigachat_baebcbeb-0617-4e5b-a2de-8e8f7ef2ebee",
+          "name": "subagent_supervisor",
+          "arguments": {
+            "action": "reply",
+            "replyTo": "aec9a244-8f3a-447d-8d0c-122d42253ef8"
+          },
+          "thoughtSignature": "gigachat:functions_state_id:01a1581f-f642-7748-8b15-367aefbf9218"
+        }
+      ],
+      "toolExecutionPerformed": false
+    },
+    {
+      "name": "current-russian",
+      "stopReason": "toolUse",
+      "content": [
+        {
+          "type": "toolCall",
+          "id": "gigachat_5989b2a8-c25c-4fe7-8cd6-9b2e14581738",
+          "name": "subagent_supervisor",
+          "arguments": {
+            "action": "reply",
+            "replyTo": "aec9a244-8f3a-447d-8d0c-122d42253ef8"
+          },
+          "thoughtSignature": "gigachat:functions_state_id:01a1581f-f9b5-7d3d-a60e-668898958bee"
+        }
+      ],
+      "toolExecutionPerformed": false
+    },
+    {
+      "name": "explicit-declaration",
+      "stopReason": "toolUse",
+      "content": [
+        {
+          "type": "toolCall",
+          "id": "gigachat_da70f7a5-0854-4752-9a0d-6f17801256e8",
+          "name": "subagent_supervisor",
+          "arguments": {
+            "action": "reply",
+            "replyTo": "aec9a244-8f3a-447d-8d0c-122d42253ef8"
+          },
+          "thoughtSignature": "gigachat:functions_state_id:01a1581f-ff79-7df3-a8c3-de066283e4e3"
+        }
+      ],
+      "toolExecutionPerformed": false
+    },
+    {
+      "name": "required-message",
+      "stopReason": "toolUse",
+      "content": [
+        {
+          "type": "toolCall",
+          "id": "gigachat_127afc42-24f1-4fec-abbd-d2a6ef9d14ed",
+          "name": "subagent_supervisor",
+          "arguments": {
+            "action": "reply",
+            "message": "Use VERIFIED",
+            "replyTo": "aec9a244-8f3a-447d-8d0c-122d42253ef8"
+          },
+          "thoughtSignature": "gigachat:functions_state_id:01a15821-8c68-76ea-83bf-2c77dc4c9248"
+        }
+      ],
+      "sentParameters": {
+        "type": "object",
+        "required": [
+          "action",
+          "message"
+        ],
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "list",
+              "pending",
+              "status",
+              "reply"
+            ],
+            "description": "List pending requests, inspect status, or reply to a request."
+          },
+          "to": {
+            "type": "string",
+            "description": "Unique request id prefix, agent or child target; replyTo takes precedence."
+          },
+          "message": {
+            "type": "string",
+            "description": "Reply text; required for reply. Interviews need JSON matching the requested shape."
+          },
+          "replyTo": {
+            "type": "string",
+            "description": "Exact pending request id; omit only with one matching request."
+          }
+        },
+        "additionalProperties": false
+      },
+      "toolExecutionPerformed": false
+    },
+    {
+      "name": "optional-renamed-text",
+      "stopReason": "toolUse",
+      "content": [
+        {
+          "type": "toolCall",
+          "id": "gigachat_9aa077b7-f81d-4df9-9da0-3da2c496e9bd",
+          "name": "subagent_supervisor",
+          "arguments": {
+            "action": "reply",
+            "replyText": "Use VERIFIED",
+            "replyTo": "aec9a244-8f3a-447d-8d0c-122d42253ef8"
+          },
+          "thoughtSignature": "gigachat:functions_state_id:01a15821-9180-7b31-bdc3-91cd8d161504"
+        }
+      ],
+      "sentParameters": {
+        "type": "object",
+        "required": [
+          "action"
+        ],
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "list",
+              "pending",
+              "status",
+              "reply"
+            ],
+            "description": "List pending requests, inspect status, or reply to a request."
+          },
+          "to": {
+            "type": "string",
+            "description": "Unique request id prefix, agent or child target; replyTo takes precedence."
+          },
+          "replyTo": {
+            "type": "string",
+            "description": "Exact pending request id; omit only with one matching request."
+          },
+          "replyText": {
+            "type": "string",
+            "description": "Reply text; required for reply. Interviews need JSON matching the requested shape."
+          }
+        },
+        "additionalProperties": false
+      },
+      "toolExecutionPerformed": false
+    },
+    {
+      "name": "optional-message-first",
+      "stopReason": "toolUse",
+      "content": [
+        {
+          "type": "toolCall",
+          "id": "gigachat_756d02a7-bd57-4a8b-b3b5-799d6d01045f",
+          "name": "subagent_supervisor",
+          "arguments": {
+            "action": "reply",
+            "replyTo": "aec9a244-8f3a-447d-8d0c-122d42253ef8"
+          },
+          "thoughtSignature": "gigachat:functions_state_id:01a15821-9509-70e7-96e2-3a95dfa1a4d8"
+        }
+      ],
+      "sentParameters": {
+        "type": "object",
+        "required": [
+          "action"
+        ],
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Reply text; required for reply. Interviews need JSON matching the requested shape."
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "list",
+              "pending",
+              "status",
+              "reply"
+            ],
+            "description": "List pending requests, inspect status, or reply to a request."
+          },
+          "to": {
+            "type": "string",
+            "description": "Unique request id prefix, agent or child target; replyTo takes precedence."
+          },
+          "replyTo": {
+            "type": "string",
+            "description": "Exact pending request id; omit only with one matching request."
+          }
+        },
+        "additionalProperties": false
+      },
+      "toolExecutionPerformed": false
+    },
+    {
+      "name": "conditional-message",
+      "stopReason": "toolUse",
+      "content": [
+        {
+          "type": "toolCall",
+          "id": "gigachat_15996f84-35d8-4cd5-872b-5e27a2aa96f9",
+          "name": "subagent_supervisor",
+          "arguments": {
+            "action": "reply",
+            "replyTo": "aec9a244-8f3a-447d-8d0c-122d42253ef8"
+          },
+          "thoughtSignature": "gigachat:functions_state_id:01a15821-996c-71b9-be9c-66fcfd96b7dc"
+        }
+      ],
+      "sentParameters": {
+        "type": "object",
+        "required": [
+          "action"
+        ],
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "list",
+              "pending",
+              "status",
+              "reply"
+            ],
+            "description": "List pending requests, inspect status, or reply to a request."
+          },
+          "to": {
+            "type": "string",
+            "description": "Unique request id prefix, agent or child target; replyTo takes precedence."
+          },
+          "message": {
+            "type": "string",
+            "description": "Reply text; required for reply. Interviews need JSON matching the requested shape."
+          },
+          "replyTo": {
+            "type": "string",
+            "description": "Exact pending request id; omit only with one matching request."
+          }
+        },
+        "additionalProperties": false,
+        "if": {
+          "properties": {
+            "action": {
+              "const": "reply"
+            }
+          },
+          "required": [
+            "action"
+          ]
+        },
+        "then": {
+          "required": [
+            "message"
+          ]
+        }
+      },
+      "toolExecutionPerformed": false
+    },
+    {
+      "name": "bounded-message",
+      "stopReason": "toolUse",
+      "content": [
+        {
+          "type": "toolCall",
+          "id": "gigachat_c043be9c-ba07-4ade-8b74-8233326f2f53",
+          "name": "subagent_supervisor",
+          "arguments": {
+            "action": "reply",
+            "replyTo": "aec9a244-8f3a-447d-8d0c-122d42253ef8"
+          },
+          "thoughtSignature": "gigachat:functions_state_id:01a15822-618c-7074-a082-47950f150b32"
+        }
+      ],
+      "toolExecutionPerformed": false
+    },
+    {
+      "name": "nonempty-message",
+      "stopReason": "toolUse",
+      "content": [
+        {
+          "type": "toolCall",
+          "id": "gigachat_55427f49-324c-4874-9a52-c35f6f50ac9f",
+          "name": "subagent_supervisor",
+          "arguments": {
+            "action": "reply",
+            "replyTo": "aec9a244-8f3a-447d-8d0c-122d42253ef8"
+          },
+          "thoughtSignature": "gigachat:functions_state_id:01a15822-6665-7e3f-af4b-61ff6071c7cf"
+        }
+      ],
+      "toolExecutionPerformed": false
+    },
+    {
+      "name": "conditional-anyof",
+      "stopReason": "error",
+      "content": [],
+      "toolExecutionPerformed": false
+    },
+    {
+      "name": "example-message",
+      "stopReason": "toolUse",
+      "content": [
+        {
+          "type": "toolCall",
+          "id": "gigachat_b68a297d-b701-4289-9c38-dcc4aec28e47",
+          "name": "subagent_supervisor",
+          "arguments": {
+            "action": "reply",
+            "replyTo": "aec9a244-8f3a-447d-8d0c-122d42253ef8"
+          },
+          "thoughtSignature": "gigachat:functions_state_id:01a15822-7109-762a-88a6-308a1d53dc87"
+        }
+      ],
+      "toolExecutionPerformed": false
+    }
+  ],
+  "observed": "Optional message was omitted in the minimized current declaration in both languages and after description/order/bounds/example/conditional variations. Requiring message or renaming the optional input to replyText produced the requested text. The conditional-anyOf probe returned an error; no general JSON Schema restriction is inferred.",
+  "proposedInterfaceChangeRequiresApproval": true
+}

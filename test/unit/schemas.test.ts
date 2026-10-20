@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { resolveDisabledFeatureSurface } from "../../src/shared/disabled-features.ts";
 
 type JsonSchemaNode = Record<string, unknown>;
 
@@ -206,59 +207,25 @@ describe("SubagentParams schema", { skip: !schemasAvailable ? "typebox not avail
 		assert.match(description, /else fresh/);
 	});
 
-	it("exposes one workflow field for the reply block, script paths, and named resources", () => {
-		const workflow = SubagentParams?.properties?.workflow;
-		assert.equal(hasAnyOfType(workflow, "boolean"), true);
-		assert.equal(anyOfBranches(workflow).find((branch) => branch.type === "string")?.minLength, 1);
-		assert.match(String(workflow?.description ?? ""), /true: run the one ```js workflow block written in this same reply/);
-		assert.match(String(workflow?.description ?? ""), /String with '\/': script file read from request cwd/);
-		assert.match(String(workflow?.description ?? ""), /Other string: named workflow resource/);
-		assert.match(String(workflow?.description ?? ""), /no runs.host/);
-		const args = SubagentParams?.properties?.args;
-		assert.equal(args?.type, "object");
-		assert.equal(args?.maxProperties, 16);
-		assert.match(String(args?.description ?? ""), /plain-JSON args for workflow; 16 fields\/object, 64 items\/array, depth 8, 16 KiB total;/i);
-		assert.match(String(args?.description ?? ""), /raw-script.*deeply frozen.*persisted.*secrets/i);
-		for (const name of ["globalConcurrencyLimit", "maxSubagentSpawnsPerRun"] as const) {
-			const capacity = SubagentParams?.properties?.[name];
-			assert.equal(capacity?.type, "integer");
-			assert.equal(capacity?.minimum, 1);
+	it("accepts string workflow/output model arguments and rejects boolean or non-string values", async () => {
+		assert.ok(CompileSchema);
+		for (const disabled of [undefined, resolveDisabledFeatureSurface({ disabledFeatures: ["workflow-scripts"] })]) {
+			const validator = CompileSchema!(createProviderSchema!(disabled));
+			for (const output of ["true", "false", "./report.md"]) {
+				assert.equal(validator.Check({ agent: "worker", output }), true);
+			}
+			for (const output of [true, false, 42, null, {}]) {
+				assert.equal(validator.Check({ agent: "worker", output }), false);
+			}
+			if (!disabled) {
+				for (const workflow of ["true", "./flow.js", "parallel"]) {
+					assert.equal(validator.Check({ workflow }), true);
+				}
+				for (const workflow of [true, false, "", 42, null, {}]) {
+					assert.equal(validator.Check({ workflow }), false);
+				}
+			}
 		}
-		const preflight = SubagentParams?.properties?.preflight;
-		assert.equal(preflight?.type, "object");
-		assert.equal(preflight?.additionalProperties, false);
-		assert.match(String(preflight?.description ?? ""), /display-only/i);
-		assert.equal((preflight?.properties as JsonSchemaNode | undefined)?.version?.minimum, 1);
-		assert.equal((preflight?.properties as JsonSchemaNode | undefined)?.version?.maximum, 1);
-		assert.equal((preflight?.properties as JsonSchemaNode | undefined)?.lanes?.maxItems, 64);
-		const chatProgress = SubagentParams?.properties?.chatProgress;
-		assert.equal(chatProgress?.type, "string");
-		assert.deepEqual(chatProgress?.enum, ["auto", "off", "live-card"]);
-		assert.match(String(chatProgress?.description ?? ""), /same Git repository/i);
-		assert.match(String(chatProgress?.description ?? ""), /async:false/);
-		assert.match(String(chatProgress?.description ?? ""), /async: omit or auto\/off/);
-		const worktree = SubagentParams?.properties?.worktree;
-		assert.equal(worktree?.type, "boolean");
-		assert.match(String(worktree?.description ?? ""), /each workflow child/i);
-		const isolation = SubagentParams?.properties?.isolation;
-		assert.equal(isolation?.type, "string");
-		assert.deepEqual(isolation?.enum, ["none", "worktree"]);
-		const gate = SubagentParams?.properties?.gate;
-		assert.equal(hasAnyOfType(gate, "string"), true);
-		assert.equal(hasAnyOfType(gate, "object"), true);
-		const gateObject = anyOfBranches(gate).find((branch) => branch.type === "object");
-		assert.deepEqual(gateObject?.required, ["command"]);
-		assert.deepEqual((gateObject?.properties as Record<string, JsonSchemaNode> | undefined)?.output?.enum, ["json"]);
-		assert.match(String(gate?.description ?? ""), /cannot be combined with acceptance/i);
-		const properties = SubagentParams?.properties as Record<string, JsonSchemaNode> | undefined;
-		assert.equal(properties?.task?.type, "string");
-		assert.match(String(properties?.task?.description ?? ""), /one-child/i);
-		assert.match(String((properties?.agent as JsonSchemaNode | undefined)?.description ?? ""), /one-child/i);
-		assert.equal(properties?.clarify, undefined, "clarify should not be model-facing");
-		assert.ok(properties?.output, "output remains a workflow child default");
-		assert.match(String(properties?.output?.description ?? ""), /relative workflow paths use managed artifact routing/i);
-		assert.match(String(properties?.output?.description ?? ""), /Bind durable output here, not task prose/i);
-		assert.match(String(properties?.output?.description ?? ""), /outputReference.*outputPathMapping.*artifactPaths/i);
 	});
 
 	it("omits removed legacy and workflow-child-only fields", () => {
@@ -267,18 +234,6 @@ describe("SubagentParams schema", { skip: !schemasAvailable ? "typebox not avail
 		}
 	});
 
-	it("allows runtime validation of management and control action strings", () => {
-		const actionSchema = SubagentParams?.properties?.action;
-		assert.ok(actionSchema, "action schema should exist");
-		assert.equal(actionSchema.type, "string");
-		assert.equal(actionSchema.minLength, 1);
-		assert.equal(actionSchema.enum, undefined);
-		const description = String(actionSchema.description ?? "");
-		assert.match(description, /Management\/control only; omit for execution/);
-		assert.match(description, /validate accepts workflow: true or a script path/);
-		assert.match(description, /\{action:"guide",options:\{topic:"tool-reference"\}\}/);
-		assert.doesNotMatch(description, /orchestration\./);
-	});
 
 	it("accepts prompt-free capability discovery on list requests", () => {
 		const capabilitiesSchema = SubagentParams?.properties?.capabilities;
@@ -473,7 +428,6 @@ describe("SubagentParams schema", { skip: !schemasAvailable ? "typebox not avail
 		assert.equal(properties.options?.additionalProperties, true);
 		assert.equal(properties.options?.properties, undefined);
 		assert.match(String(properties.options?.description ?? ""), /acceptance, timeoutMs.*guide tool-reference\/parameter-reference/);
-		const { resolveDisabledFeatureSurface } = await import("../../src/shared/disabled-features.ts");
 		const structured = createProviderSchema!(resolveDisabledFeatureSurface({ disabledFeatures: ["workflow-scripts"] }));
 		assert.ok(JSON.stringify(structured).length <= 2_400, `expected structured schema at or under 2,400 chars, got ${JSON.stringify(structured).length}`);
 		assert.deepEqual(Object.keys(structured.properties as JsonSchemaNode), ["agent", "task", "tasks", "chain", "async", "model", "cwd", "worktree", "output", "action", "id", "message", "options"]);

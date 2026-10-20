@@ -24,12 +24,12 @@ it("only the installed runtime drain can complete evidence, not acknowledgements
 		const pi = { on(event: string, handler: Handler) { handlers.set(event, [...handlers.get(event) ?? [], handler]); }, events: { on() { return () => {}; } } };
 		observeReadonlyChildHookDrain(hooks, true, file); hooks[0].factory(pi as never);
 		const settled = captureReadonlyChildDrain(hooks);
-		const ctx = { hasUI: kind === "UI", sessionManager: { getSessionFile: () => file } };
+		const ctx = { hasUI: kind === "UI", sessionManager: { getSessionFile: () => file, getBranch: () => [] } };
 		for (const handler of handlers.get("session_start") ?? []) await handler({}, ctx);
 		const ends = handlers.get("agent_end")!;
 		assert.equal(ends.length, 2, "acknowledgement and actual drain remain distinct");
 		await ends[0]({}, ctx); assert.equal(settled(), false);
-		if (kind !== "ack-only") await ends[1]({}, kind === "wrong-file" ? { sessionManager: { getSessionFile: () => "/other" } } : ctx);
+		if (kind !== "ack-only") await ends[1]({}, kind === "wrong-file" ? { ...ctx, sessionManager: { ...ctx.sessionManager, getSessionFile: () => "/other" } } : ctx);
 		if (kind === "second") await ends[1]({}, ctx);
 		if (kind === "reinstalled") { observeReadonlyChildHookDrain(hooks, true, file); hooks[0].factory(pi as never); }
 		if (kind === "missing-installation") { observeReadonlyChildHookDrain(hooks, true, file); assert.equal(captureReadonlyChildDrain(hooks)(), false); }

@@ -35,7 +35,7 @@ test("native preload leaves the SDK extension loader's require.resolve intact", 
 			timeout: 10_000,
 		});
 		assert.equal(child.status, 0, child.stderr);
-		assert.equal(child.stdout.trim(), fs.realpathSync(target));
+		assert.equal(fs.realpathSync(child.stdout.trim()), fs.realpathSync(target));
 	} finally {
 		fs.rmSync(root, { recursive: true, force: true });
 	}

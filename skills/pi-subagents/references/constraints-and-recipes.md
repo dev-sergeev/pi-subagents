@@ -28,13 +28,13 @@ Runtime config can change orchestration behavior. `intercomBridge.resultDelivery
 
 ### Keep report artifacts out of the repository root
 
-Treat lane reports, review notes, council pass reports, and gate logs as scratch unless the user explicitly asks to keep them. Prefer `output: false` and the aggregate workflow result for short reports. When a later step needs a file, use the runtime-managed output artifact by setting a stable child key plus a relative `output` path such as `plans/deploy.md`; relative child outputs are saved under the run artifact directory, not the project root. Do not put `reports/...`, `*-report.json`, or similar repo-root paths in child task text.
+Treat lane reports, review notes, council pass reports, and gate logs as scratch unless the user explicitly asks to keep them. Prefer `output: "false"` and the aggregate workflow result for short reports. When a later step needs a file, use the runtime-managed output artifact by setting a stable child key plus a relative `output` path such as `plans/deploy.md`; relative child outputs are saved under the run artifact directory, not the project root. Do not put `reports/...`, `*-report.json`, or similar repo-root paths in child task text.
 
 For durable evidence, copy only the final summary to session memory, a PR body/comment, a mission artifact, or a user-approved docs path outside the repo. After the PR, issue, or gate reaches a terminal state, delete or move scratch reports from the active worktree before reporting completion. Keep a project `.gitignore` entry for ad-hoc report patterns only as a safety net; it is not the cleanup mechanism.
 
 ## Best Practices
 
-- Run subagents asynchronously by default; direct one-child execution is enough for one bounded task, while a workflow script (a ```` ```js workflow ```` block plus `subagent({ workflow: true })`) is the composition surface for JavaScript control flow and data-dependent branching. Use `async: false` only when the parent must block. See `references/execution-controls.md` → Async/background for wait semantics.
+- Run subagents asynchronously by default; direct one-child execution is enough for one bounded task, while a workflow script (a ```` ```js workflow ```` block plus `subagent({ workflow: "true" })`) is the composition surface for JavaScript control flow and data-dependent branching. Use `async: false` only when the parent must block. See `references/execution-controls.md` → Async/background for wait semantics.
 - For a predeclared broad plan split into visible narrow stages, use `runs.lanes([...])` inside a workflow script; use raw `runs.run(...)`/`runs.all(...)` for conditional or rolling flows. See [`execution-controls.md`](execution-controls.md#parallel-sequential-lanes).
 - Keep one writer per cwd/worktree. Parallelize reading, review, and validation; concurrent writers need isolated worktrees. Give every child a cold-start packet with its goal, target/ref, authority, context, success criteria, validation, output, and stop rules.
 - Keep tasks narrow and standalone; do not rely on issue numbers, broad globs, or supervisor round-trips to supply missing context.

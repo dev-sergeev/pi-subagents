@@ -1,0 +1,10 @@
+{
+  "endpoint": "https://api.giga.chat/v1/functions/validate",
+  "httpStatus": 429,
+  "body": {
+    "status": 429,
+    "message": "Too Many Requests"
+  },
+  "json_ai_rules_version": null,
+  "accepted": false
+}

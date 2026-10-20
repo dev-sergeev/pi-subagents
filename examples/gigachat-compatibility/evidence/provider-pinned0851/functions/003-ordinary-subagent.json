@@ -1,0 +1,66 @@
+{
+  "name": "subagent",
+  "description": "One child: {agent,task}. Independent parallel children: {workflow:\"parallel\",args:{tasks:[{agent,task},...]}}. Dependent multi-step work: exactly one top-level subagent workflow call with async:true; write one ```js workflow block in this reply, then call subagent({workflow:\"true\"}); children launch only inside it.\nManagement: {action,id?,options:{...}}; fields not in this schema go in options.\nLaunch agents by name and pass models as exact provider/id; an unknown agent or model returns the valid choices.\nDetails: guide workflows/recommended-orchestration-pattern (async, review, failure recovery), guide workflows/scripted-workflows, guide tool-reference/retained-children, guide tool-reference/external-cli-agent-profiles.\n\nSAFETY-CRITICAL SUBAGENT GUIDANCE:\n- Delegate only when the operator asked, directly or through applicable user/project instructions; size, complexity or risk alone is not authorization.\n- Native async completion wakes this session: return control; do not sleep, poll or call bg_wait for it.\n- One writer per cwd/worktree; isolate concurrent writers.\n- After a launch or runtime failure, stop and report it; never silently switch to interactive_shell, pi -ne or another CLI.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "agent": {
+        "type": "string",
+        "description": "One-child agent or management target."
+      },
+      "task": {
+        "type": "string",
+        "description": "One-child task; requires agent."
+      },
+      "workflow": {
+        "type": "string",
+        "minLength": 1,
+        "description": "\"true\": this reply's ```js workflow block; path with '/': script file from cwd; other name: workflow resource. Omit for one child/management."
+      },
+      "args": {
+        "type": "object",
+        "maxProperties": 16,
+        "additionalProperties": true,
+        "description": "Workflow plain JSON: 16 fields/object, 64 items/array, depth 8, 16 KiB. Raw-script args are deeply frozen and persisted; never include secrets."
+      },
+      "async": {
+        "type": "boolean",
+        "description": "Background; default asyncByDefault. false only to block parent."
+      },
+      "model": {
+        "type": "string",
+        "description": "Child model provider/id; bare id only if unique. Suffix :off/minimal/low/medium/high/xhigh/max overrides agent thinking default."
+      },
+      "cwd": {
+        "type": "string",
+        "description": "Execution/project-pane directory."
+      },
+      "worktree": {
+        "type": "boolean",
+        "description": "Isolate each workflow child in a managed git worktree; child worktree:false overrides default."
+      },
+      "output": {
+        "type": "string",
+        "description": "Save path; \"false\": disable saving; \"true\": configured default; omit: inherit. Relative workflow paths use managed artifacts."
+      },
+      "action": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Management/control only; omit for execution. validate accepts workflow: \"true\" or a script path. Discover actions with {action:\"guide\",options:{topic:\"tool-reference\"}}."
+      },
+      "id": {
+        "type": "string",
+        "description": "Run id/prefix for status/control."
+      },
+      "message": {
+        "type": "string",
+        "description": "resume/steer guidance or project.open prompt."
+      },
+      "options": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Every field not listed here, such as acceptance, timeoutMs, context, view and index; guide tool-reference/parameter-reference."
+      }
+    }
+  }
+}

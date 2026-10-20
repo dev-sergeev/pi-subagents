@@ -13,10 +13,9 @@ import { createNativeSupervisorChannel, NATIVE_SUPERVISOR_TOOL_NAME, resolveSupe
 import { readStatus } from "../shared/utils.ts";
 import { resolveSubagentIntercomTarget } from "../intercom/intercom-bridge.ts";
 import { createSubagentParamsSchema } from "./schemas.ts";
-import { registerPinnedTool } from "./declaration-pinning.ts";
 import { resolveDisabledFeatureSurface } from "../shared/disabled-features.ts";
 import { finalizeToolResult } from "./tool-result.ts";
-import { flattenSubagentToolOptions } from "./subagent-options.ts";
+import { flattenSubagentToolOptions, prepareSubagentToolArguments } from "./subagent-options.ts";
 import { loadConfig, resolveAsyncByDefault } from "./config.ts";
 import { SUBAGENT_ASYNC_STARTED_EVENT, type AsyncStartedEvent, type Details, type SubagentState } from "../shared/types.ts";
 import { createChildExternalJobBridgeSweeper } from "../runs/shared/external-job-bridge.ts";
@@ -228,12 +227,13 @@ export default function registerFanoutChildSubagentExtension(pi: ExtensionAPI, c
 			...(blockedActions ? [`Mutating management actions (${blockedActions}) are blocked in this mode.`] : []),
 		].join("\n"),
 		parameters: params,
+		prepareArguments: prepareSubagentToolArguments,
 		async execute(id, params, signal, onUpdate, ctx) {
 			return finalizeToolResult(await executor.executePublic(id, flattenSubagentToolOptions(params, disabledFeatures), signal ?? new AbortController().signal, onUpdate, ctx));
 		},
 	};
 
-	registerPinnedTool(pi, tool);
+	pi.registerTool(tool);
 	const bridgeSweeper = createChildExternalJobBridgeSweeper();
 	const unsubscribeBridgeStarted = pi.events.on(SUBAGENT_ASYNC_STARTED_EVENT, (payload: unknown) => {
 		const info = payload as AsyncStartedEvent;

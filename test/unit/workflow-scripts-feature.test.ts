@@ -16,7 +16,7 @@ import { createEventBus, makeMinimalCtx } from "../support/helpers.ts";
 const SETTING = `disabledFeatures "workflow-scripts"`;
 const DISABLED: ExtensionConfig = { disabledFeatures: ["workflow-scripts"] };
 const surface = resolveDisabledFeatureSurface(DISABLED);
-const LEGACY_ERROR = "Legacy top-level chain and parallel inputs were removed; use a workflow script (workflow: true or a workflow script path).";
+const LEGACY_ERROR = /Legacy top-level chain and parallel inputs were removed/;
 const SCRIPTS_DISABLED = `subagent workflow scripts are disabled by config ${SETTING}.`;
 
 function createExecutor(config: ExtensionConfig) {
@@ -125,7 +125,7 @@ describe("workflow-scripts admission", () => {
 		assert.deepEqual(await spawn("script", { script: "return 1;" }), { code: "invalid_params", message: `RPC spawn workflow scripts are disabled by config ${SETTING}.` });
 		// Normalization would otherwise report "args requires workflow." and hide the setting.
 		assert.deepEqual(await spawn("args", { agent: "scout", task: "x", args: {} }), { code: "invalid_params", message: `RPC spawn option 'args' is disabled by config ${SETTING}.` });
-		assert.equal((await spawn("chain", { chain: [{ agent: "scout", task: "x" }] }))?.message, LEGACY_ERROR);
+		assert.match((await spawn("chain", { chain: [{ agent: "scout", task: "x" }] }))?.message ?? "", LEGACY_ERROR);
 	});
 
 	it("launches /run as a direct child", async () => {
@@ -154,7 +154,8 @@ describe("workflow-scripts chain/tasks normalization", () => {
 	it("keeps chain and tasks as legacy errors while workflow scripts are enabled", async () => {
 		for (const input of [{ chain: [{ agent: "scout", task: "x" }] }, { tasks: [{ agent: "scout", task: "x" }] }]) {
 			const result = await createExecutor({}).executePublic("enabled", input, new AbortController().signal, undefined, ctx());
-			assert.equal(resultText(result), LEGACY_ERROR);
+			assert.equal(result.isError, true);
+			assert.match(resultText(result), LEGACY_ERROR);
 		}
 	});
 
@@ -170,6 +171,6 @@ describe("workflow-scripts chain/tasks normalization", () => {
 		assert.equal(error({ chain, agent: "scout" }), "chain cannot be combined with agent.");
 		assert.equal(error({ tasks: chain, action: "status" }), "tasks cannot be combined with action.");
 		assert.equal(error({ tasks: chain, step: {} }), "tasks cannot be combined with step.");
-		for (const legacy of [{ action: "chain", chain }, { action: "tasks", tasks: chain }, { chain, concurrency: 2 }, { chain, chainDir: "/tmp" }]) assert.equal(error(legacy), LEGACY_ERROR);
+		for (const legacy of [{ action: "chain", chain }, { action: "tasks", tasks: chain }, { chain, concurrency: 2 }, { chain, chainDir: "/tmp" }]) assert.match(error(legacy) ?? "", LEGACY_ERROR);
 	});
 });

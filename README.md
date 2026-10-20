@@ -1,5 +1,5 @@
 <p>
-  <img src="https://raw.githubusercontent.com/nicobailon/pi-subagents/main/banner.png" alt="pi-subagents" width="1100">
+  <img src="https://raw.githubusercontent.com/dev-sergeev/pi-subagents/gigachat/banner.png" alt="pi-subagents" width="1100">
 </p>
 
 # pi-subagents
@@ -11,10 +11,18 @@
 ## Install
 
 ```bash
-pi install npm:pi-subagents
+pi install npm:@dev-sergeev/pi-subagents
 ```
 
-That is the only required step. Background children use the host's SDK: npm Pi keeps its detached Node runner; the official Pi 0.86.1 Linux x64 standalone release loads the same runner through Pi's embedded SDK, without a separate SDK install. See [Standalone background execution](docs/standalone-background.md) for the supported boundary and validation gate.
+The scoped package **`@dev-sergeev/pi-subagents`** is this GigaChat-compatible fork, not the upstream `pi-subagents` npm package. It supports **Pi 0.85.1**, matching `pi-gigachat@0.6.4`; newer Pi versions are outside its supported contract. Background children use that host's SDK. The official 0.85.1 Linux x64 standalone binary has a separate Linux verification gate; see [Standalone background execution](docs/standalone-background.md) for evidence and limits.
+
+Do not load the upstream and scoped fork extensions together: they expose the same tool and coordination protocol names.
+
+With Node 24, a source checkout uses the pinned local host without a build:
+
+```sh
+node node_modules/@earendil-works/pi-coding-agent/dist/cli.js --extension ./index.ts
+```
 
 ## Try this first
 
@@ -44,7 +52,7 @@ Pi is the parent session. A subagent is a focused child Pi session with its own 
 
 When you ask for a subagent, Pi starts the child, gives it the task, and brings the result back. Foreground children run as sessions inside the parent Pi process and stream in the conversation. Background children run as sessions inside a detached runner process that keeps working and can be checked later.
 
-Installing the extension does not start an automatic reviewer in the background. When the session's model can take a new tool mid-conversation, fresh parent sessions initially expose the small `subagents_enable` loader instead of the full `subagent` schema. When your request or applicable instructions authorize delegation, Pi can call the loader itself; the unchanged `subagent` tool is available on the next model request. With other models, fresh sessions start with `subagent` active, because adding a tool later would make the provider miss its prompt cache. The [`toolActivation`](docs/configuration.md#toolactivation) setting changes this. Complexity alone does not authorize delegation. `bg_wait` and supervisor replies remain available without activation.
+Installing the extension does not start an automatic reviewer in the background. On the pinned Pi 0.85.1 host, fresh parents default to eager `subagent` availability. Set [`toolActivation: "dynamic"`](docs/configuration.md#toolactivation) to start with the small `subagents_enable` loader instead; an authorized loader call exposes the full tools on the next model request without launching a child. Complexity alone does not authorize delegation. Background-provider waits and pending supervisor replies remain available without enabling delegation.
 
 If you want every implementation reviewed, say so in your prompt or project instructions:
 
@@ -90,7 +98,7 @@ The package includes `/council` and `council-mode`, plus documented model-based
 | See running work | "Show active async runs." or "Show the subagent fleet." |
 | Check setup | "Check whether subagents are configured correctly." |
 
-For implementation work, the recommended loop is `clarify → scout → worker → fresh reviewers → worker`. Packaged prompt shortcuts like `/parallel-review` and `/review-loop` make these patterns repeatable — see [Workflows](https://github.com/nicobailon/pi-subagents/blob/main/docs/workflows.md).
+For implementation work, the recommended loop is `clarify → scout → worker → fresh reviewers → worker`. Packaged prompt shortcuts like `/parallel-review` and `/review-loop` make these patterns repeatable — see [Workflows](https://github.com/dev-sergeev/pi-subagents/blob/gigachat/docs/workflows.md).
 
 ## Where running work shows up
 
@@ -98,9 +106,9 @@ Foreground runs stream progress in the conversation. Background runs keep workin
 
 In the TUI, a persistent FleetView below the editor keeps active work visible. `/subagents-fleet` opens a live inspector where you can browse children, read transcripts, steer a running child, or stop a run. You can also just ask: "Show me the current async runs."
 
-Details, keybindings, and the machine-readable run artifacts are in [Observability](https://github.com/nicobailon/pi-subagents/blob/main/docs/observability.md).
+Details, keybindings, and the machine-readable run artifacts are in [Observability](https://github.com/dev-sergeev/pi-subagents/blob/gigachat/docs/observability.md).
 
-For bounded orchestration, `maxSubagentSpawnsPerRun` limits cumulative logical children in one run tree. It defaults to 64 and stays separate from active concurrency and the session-wide cumulative spawn budget. See [Configuration](https://github.com/nicobailon/pi-subagents/blob/main/docs/configuration.md#maxsubagentspawnsperrun).
+For bounded orchestration, `maxSubagentSpawnsPerRun` limits cumulative logical children in one run tree. It defaults to 64 and stays separate from active concurrency and the session-wide cumulative spawn budget. See [Configuration](https://github.com/dev-sergeev/pi-subagents/blob/gigachat/docs/configuration.md#maxsubagentspawnsperrun).
 
 ## If something feels off
 
@@ -112,18 +120,26 @@ or ask: "Check whether subagents and intercom are set up correctly."
 
 For installed-version help, use `/subagents-guide [topic]` or `subagent({ action: "guide", options: { topic: "workflows" } })`. The default topic is `overview`; available topics are `overview`, `workflows`, `agents`, `missions`, `observability`, `tool-reference`, `configuration`, `models`, `watchdog`, `extension-api`, and `council`.
 
+## Releasing this fork
+
+Release development uses the `gigachat` branch; `main` preserves the newer upstream history. Update the version in `package.json` and `package-lock.json`, record the release in `CHANGELOG.md`, and push a matching `v<version>` tag for the tested commit.
+
+Run the `Release` GitHub Actions workflow on that tag and approve its protected `release` environment. The workflow rejects another repository, an unscoped package, a branch ref or a mismatched tag. It runs the tests and native activation smoke, builds `dist-pkg`, and publishes only that generated public package with provenance. Never publish the private source root.
+
+The npm package must authorize GitHub trusted publishing for owner `dev-sergeev`, repository `pi-subagents`, workflow `release.yml`, environment `release`. GitHub repository access alone does not grant npm publication rights; initial package authorization is a separate prerequisite.
+
 ## Documentation
 
 The full reference lives in `docs/`:
 
 | Doc | What's in it |
 |-----|--------------|
-| [Agents](https://github.com/nicobailon/pi-subagents/blob/main/docs/agents.md) | Custom agents, frontmatter reference, overriding builtins, tools, extensions, skills, per-agent memory. |
-| [Models](https://github.com/nicobailon/pi-subagents/blob/main/docs/models.md) | Single-model selection and launch, defaults, per-role overrides, recommended tiering, thinking levels, model scope enforcement, profiles. |
-| [Workflows](https://github.com/nicobailon/pi-subagents/blob/main/docs/workflows.md) | Orchestration patterns, prompt shortcuts, scripted workflows, worktree isolation, child-to-parent coordination, the recursion guard. |
-| [Watchdog](https://github.com/nicobailon/pi-subagents/blob/main/docs/watchdog.md) | The opt-in adversarial change reviewer, scope monitoring, LSP checks, and child tool permissions. |
-| [Tool reference](https://github.com/nicobailon/pi-subagents/blob/main/docs/tool-reference.md) | Every `subagent` parameter, management actions, status/control actions, acceptance gates, external CLI runners. |
-| [Observability](https://github.com/nicobailon/pi-subagents/blob/main/docs/observability.md) | FleetView, the fleet inspector, lifecycle artifacts, events, logs, session sharing. |
-| [Missions and schedules](https://github.com/nicobailon/pi-subagents/blob/main/docs/missions.md) | Durable mission records, delivery receipts, timed and recurring runs. |
-| [Configuration](https://github.com/nicobailon/pi-subagents/blob/main/docs/configuration.md) | Every `config.json` key and environment variable. |
-| [Extension API](https://github.com/nicobailon/pi-subagents/blob/main/docs/extension-api.md) | The RPC, delegation API, preflight, capability ceilings, [trusted workflow resources](docs/extension-api.md#trusted-workflow-resources), background-work providers, Herdr integration. |
+| [Agents](https://github.com/dev-sergeev/pi-subagents/blob/gigachat/docs/agents.md) | Custom agents, frontmatter reference, overriding builtins, tools, extensions, skills, per-agent memory. |
+| [Models](https://github.com/dev-sergeev/pi-subagents/blob/gigachat/docs/models.md) | Single-model selection and launch, defaults, per-role overrides, recommended tiering, thinking levels, model scope enforcement, profiles. |
+| [Workflows](https://github.com/dev-sergeev/pi-subagents/blob/gigachat/docs/workflows.md) | Orchestration patterns, prompt shortcuts, scripted workflows, worktree isolation, child-to-parent coordination, the recursion guard. |
+| [Watchdog](https://github.com/dev-sergeev/pi-subagents/blob/gigachat/docs/watchdog.md) | The opt-in adversarial change reviewer, scope monitoring, LSP checks, and child tool permissions. |
+| [Tool reference](https://github.com/dev-sergeev/pi-subagents/blob/gigachat/docs/tool-reference.md) | Every `subagent` parameter, management actions, status/control actions, acceptance gates, external CLI runners. |
+| [Observability](https://github.com/dev-sergeev/pi-subagents/blob/gigachat/docs/observability.md) | FleetView, the fleet inspector, lifecycle artifacts, events, logs, session sharing. |
+| [Missions and schedules](https://github.com/dev-sergeev/pi-subagents/blob/gigachat/docs/missions.md) | Durable mission records, delivery receipts, timed and recurring runs. |
+| [Configuration](https://github.com/dev-sergeev/pi-subagents/blob/gigachat/docs/configuration.md) | Every `config.json` key and environment variable. |
+| [Extension API](https://github.com/dev-sergeev/pi-subagents/blob/gigachat/docs/extension-api.md) | The RPC, delegation API, preflight, capability ceilings, [trusted workflow resources](docs/extension-api.md#trusted-workflow-resources), background-work providers, Herdr integration. |

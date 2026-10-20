@@ -133,11 +133,18 @@ function rewriteLocalJsonPointerRefs(schema: unknown, pointerPrefix: string, inh
 }
 
 export function createStructuredOutputToolParameters(schema: JsonSchemaObject, options: { acceptanceReport?: "optional" | "required" } = {}): JsonSchemaObject {
+	const value = rewriteLocalJsonPointerRefs(schema, "#/properties/value") as JsonSchemaObject;
+	if (typeof value.description !== "string" || !value.description.trim()) {
+		value.description = "The final structured result for this subagent step, matching the requested output schema.";
+	}
 	return {
 		type: "object",
 		properties: {
-			value: rewriteLocalJsonPointerRefs(schema, "#/properties/value"),
-			...(options.acceptanceReport ? { acceptanceReport: { type: "object" } } : {}),
+			value,
+			...(options.acceptanceReport ? { acceptanceReport: {
+				type: "object",
+				description: "Evidence supporting acceptance of this result, including checks performed, observed outcomes, and any remaining limitations.",
+			} } : {}),
 		},
 		required: ["value", ...(options.acceptanceReport === "required" ? ["acceptanceReport"] : [])],
 		additionalProperties: false,

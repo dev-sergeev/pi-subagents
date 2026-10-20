@@ -154,7 +154,7 @@ describe("watchdog turn delta formatter", () => {
 	});
 
 	it("counts subagent workflow launches in every workflow form as orchestration activity", () => {
-		const calls = [{ workflow: true }, { workflow: "./ci/sweep.js" }, { workflow: "review" }, { workflowScript: "return 1" }]
+		const calls = [{ workflow: "true" }, { workflow: "./ci/sweep.js" }, { workflow: "review" }, { workflowScript: "return 1" }]
 			.map((args, index) => ({ type: "toolCall", id: `call-${index}`, name: "subagent", arguments: args }));
 		const activity = formatWatchdogOrchestrationActivity({
 			type: "turn_end",

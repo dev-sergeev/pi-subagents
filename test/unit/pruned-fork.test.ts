@@ -3,8 +3,8 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { describe, it } from "node:test";
-import { createAssistantMessageEventStream, fauxAssistantMessage } from "@earendil-works/pi-ai";
-import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { createAssistantMessageEventStream, fauxAssistantMessage, InMemoryCredentialStore, type Model } from "@earendil-works/pi-ai";
+import { ModelRegistry, ModelRuntime, type ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { createForkContextResolver } from "../../src/shared/fork-context.ts";
 import { createPrunedForkSessionWriter, pruneForkSessionFile, prunedForkRecoveryPath, type PrunedForkRecoveryPayload } from "../../src/shared/pruned-fork.ts";
 
@@ -35,7 +35,7 @@ function readRecovery(sessionFile: string): PrunedForkRecoveryPayload {
 }
 
 describe("pruned fork sessions", () => {
-	it("routes summaries through the Pi model registry with the parent session id OpenCode requires", async () => {
+	it("shares one authenticated summary across forks and preserves recoverable raw output", async () => {
 		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-pruned-registry-"));
 		try {
 			const parentSession = path.join(tempDir, "parent.jsonl");
@@ -43,10 +43,8 @@ describe("pruned fork sessions", () => {
 			const secondSession = path.join(tempDir, "second.jsonl");
 			writeJsonl(firstSession, largeForkEntries(parentSession));
 			writeJsonl(secondSession, largeForkEntries(parentSession));
-			type RegistryStreamArgs = Parameters<ExtensionContext["modelRegistry"]["streamSimple"]>;
-			type RegistryCall = { model: RegistryStreamArgs[0]; context: RegistryStreamArgs[1]; options: RegistryStreamArgs[2] };
-			const model: RegistryStreamArgs[0] = {
-				provider: "opencode",
+			const model: Model<"pi-registry-only"> = {
+				provider: "pruned-summary",
 				id: "summary-model",
 				name: "Summary model",
 				api: "pi-registry-only",
@@ -57,13 +55,20 @@ describe("pruned fork sessions", () => {
 				contextWindow: 16_000,
 				maxTokens: 9_000,
 			};
-			const controller = new AbortController();
-			const calls: RegistryCall[] = [];
-			const modelRegistry = {
-				getAvailable: () => [model],
-				find: (provider: string, id: string) => provider === model.provider && id === model.id ? model : undefined,
-				streamSimple(streamModel: RegistryStreamArgs[0], context: RegistryStreamArgs[1], options?: RegistryStreamArgs[2]) {
-					calls.push({ model: streamModel, context, options });
+			let calls = 0;
+			const runtime = await ModelRuntime.create({ credentials: new InMemoryCredentialStore(), modelsPath: null, refreshOnCreate: false });
+			const modelRegistry = new ModelRegistry(runtime);
+			modelRegistry.registerProvider(model.provider, {
+				api: model.api,
+				baseUrl: model.baseUrl,
+				apiKey: "summary-test-key",
+				headers: { "x-summary-auth": "present" },
+				models: [model],
+				streamSimple(_model, context, options) {
+					calls += 1;
+					assert.equal(options?.apiKey, "summary-test-key");
+					assert.equal(options?.headers?.["x-summary-auth"], "present");
+					assert.equal(options?.headers?.["x-opencode-session"], "parent-session");
 					const input = context.messages[0];
 					if (input?.role !== "user" || !Array.isArray(input.content) || input.content[0]?.type !== "text") throw new Error("expected summary payload");
 					const stream = createAssistantMessageEventStream();
@@ -74,32 +79,24 @@ describe("pruned fork sessions", () => {
 					}));
 					return stream;
 				},
-			};
+			});
 			const sessionManager = { getSessionId: () => "parent-session" } as ExtensionContext["sessionManager"];
 			const writer = await createPrunedForkSessionWriter({ modelRegistry, sessionManager }, {
 				mode: "pruned",
-				model: "opencode/summary-model",
-			}, controller.signal);
+				model: "pruned-summary/summary-model",
+			});
 
 			await Promise.all([writer(firstSession), writer(secondSession)]);
 
-			assert.equal(calls.length, 1, "forks share one registry-routed summary request");
-			const call = calls[0];
-			assert.ok(call);
-			assert.equal(call.model, model);
-			assert.ok(call.options);
-			assert.deepEqual(Object.keys(call.options).sort(), ["headers", "maxTokens", "sessionId", "signal"]);
-			assert.equal(call.options.sessionId, "parent-session");
-			assert.equal(call.options.headers?.["x-opencode-session"], "parent-session");
-			assert.equal(call.options.maxTokens, 4_096);
-			assert.equal(call.options.signal, controller.signal);
-			assert.match(call.context.systemPrompt ?? "", /Return strict JSON only/);
-			assert.equal(call.context.messages.length, 1);
-			const message = call.context.messages[0];
-			assert.ok(message);
-			assert.equal(message.role, "user");
-			assert.equal(readRecovery(firstSession).records.length, 1);
-			assert.equal(readRecovery(secondSession).records.length, 1);
+			assert.equal(calls, 1, "sibling forks share a summary request");
+			for (const sessionFile of [firstSession, secondSession]) {
+				const prunedText = fs.readFileSync(sessionFile, "utf-8");
+				assert.match(prunedText, /The large read established the current implementation state/);
+				assert.ok(!prunedText.includes("raw-parent-output-raw-parent-output"));
+				const records = readRecovery(sessionFile).records;
+				assert.equal(records.length, 1);
+				assert.equal(records[0]?.body, "raw-parent-output-".repeat(6_000));
+			}
 		} finally {
 			fs.rmSync(tempDir, { recursive: true, force: true });
 		}

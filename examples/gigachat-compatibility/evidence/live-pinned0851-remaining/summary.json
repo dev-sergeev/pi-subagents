@@ -1,0 +1,71 @@
+{
+  "format": 1,
+  "evidenceKind": "pi-gigachat-real-model-smoke",
+  "model": "gigachat-compatibility/GigaChat-3-Ultra",
+  "startedAt": "2026-10-20T05:45:58.349Z",
+  "selectedScenarios": [
+    "async",
+    "supervisor",
+    "structured-output"
+  ],
+  "providerRetries": "8",
+  "complete": true,
+  "passed": false,
+  "cases": [
+    {
+      "name": "async",
+      "passed": true,
+      "evidence": "async.json",
+      "facts": {
+        "activation": true,
+        "childRead": true,
+        "childCompleted": true,
+        "nonceInFinalParentAnswer": true,
+        "nonceInProviderDeliveredResult": true,
+        "publicStringOutputAndFreshOptions": true,
+        "actualAsyncRunId": true,
+        "awaitedActualRunId": true,
+        "actualAsyncResult": true
+      }
+    },
+    {
+      "name": "supervisor",
+      "passed": false,
+      "evidence": "supervisor.json.gz",
+      "facts": {
+        "activation": true,
+        "childRead": false,
+        "childCompleted": false,
+        "nonceInFinalParentAnswer": false,
+        "nonceInProviderDeliveredResult": false,
+        "publicStringOutputAndFreshOptions": true,
+        "actualAsyncRunId": true,
+        "awaitedActualRunId": true,
+        "actualAsyncResult": false,
+        "pendingActualDecision": true,
+        "repliedActualDecision": false,
+        "childSupervisorTool": false,
+        "verifiedFinalAnswer": false
+      },
+      "failure": "Scenario exceeded its ten-minute wall-clock deadline and was aborted."
+    },
+    {
+      "name": "structured-output",
+      "passed": false,
+      "evidence": "structured-output.json",
+      "facts": {
+        "activation": true,
+        "childRead": false,
+        "childCompleted": false,
+        "nonceInFinalParentAnswer": false,
+        "nonceInProviderDeliveredResult": false,
+        "publicStringOutputAndFreshOptions": false,
+        "foregroundSingleLaunch": false,
+        "configuredStructuredProfile": false,
+        "validatedChildStructuredCapture": false
+      },
+      "failure": "Acceptance failed: childRead, childCompleted, nonceInFinalParentAnswer, nonceInProviderDeliveredResult, publicStringOutputAndFreshOptions, foregroundSingleLaunch, configuredStructuredProfile, validatedChildStructuredCapture"
+    }
+  ],
+  "completedAt": "2026-10-20T06:06:10.800Z"
+}

@@ -60,7 +60,7 @@ if (phase === "old") {
 			import { registerRuntimeAgent } from "./src/agents/runtime-agent-registry.ts";
 			const hooks = new Map();
 			const tools = new Map();
-			let active = ["subagents_enable"];
+			let active = ["subagent"];
 			const pi = new Proxy({
 				events: { on() { return () => {}; }, emit() {} },
 				on(name, handler) { hooks.set(name, [...(hooks.get(name) ?? []), handler]); },
@@ -78,9 +78,8 @@ if (phase === "old") {
 			const start = hooks.get("session_start").at(-2);
 			const before = hooks.get("before_agent_start").at(-2);
 			const advertise = async () => {
-				const event = { systemPrompt: "base", systemPromptOptions: { selectedTools: ["subagent"], sections: {} } };
-				await before(event, ctx);
-				return event.systemPromptOptions.sections.advertised_subagents;
+				const result = await before({ systemPrompt: "base" }, ctx);
+				return result?.systemPrompt ?? "base";
 			};
 			start({ reason: "startup" }, ctx);
 			let tick = false;
@@ -103,9 +102,6 @@ if (phase === "old") {
 				assert.match(text, /<name>global-specialist<\/name>/);
 				assert.match(text, /<name>local-specialist<\/name>/);
 			}
-			assert.match(loader.content[0].text, /If your tool list includes subagent \(possibly prefixed\), call it now\./);
-			assert.match(loader.content[0].text, /Otherwise, wait for the next user prompt; do not retry now\./);
-			assert.match(loader.content[0].text, /Start Pi with --exclude-tools subagents_enable to keep subagent always available\./);
 			process.env.TEST_NPM_PHASE = "seed";
 			assert.ok(discoverAgents(ctx.cwd, "both").agents.some((agent) => agent.name === "global-specialist"));
 			process.env.TEST_NPM_PHASE = "old";

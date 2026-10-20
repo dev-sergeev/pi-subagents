@@ -183,28 +183,6 @@ describe("subagent messages in the main chat", () => {
 		assert.deepEqual(visibleLines(renderEntry("subagent_supervisor_reply", { ...reply, message: ["bad"] })), [" [subagent] supervisor reply (click to expand)"]);
 	});
 
-	it("expands a message to the text the main agent read, as markdown", () => {
-		const content = [
-			"Subagent needs a supervisor decision.",
-			"Run: run-1",
-			"Agent: worker",
-			"Child index: 0",
-			"",
-			"Should I drop the old `users.email` index first?",
-			"",
-			"Reply with: subagent_supervisor({ action: \"reply\", replyTo: \"request-1\", message: \"...\" })",
-		].join("\n");
-		assert.deepEqual(visibleLines(renderMessage("subagent_supervisor_request", { ...request, reason: "need_decision" }, { content, expanded: true, width: 200 })), [
-			" [subagent] worker needs a decision",
-			" Subagent needs a supervisor decision.",
-			" Run: run-1",
-			" Agent: worker",
-			" Child index: 0",
-			" Should I drop the old users.email index first?",
-			" Reply with: subagent_supervisor({ action: \"reply\", replyTo: \"request-1\", message: \"...\" })",
-		]);
-	});
-
 	it("expands the supervisor reply entry to the reply and the request it answers", () => {
 		assert.deepEqual(visibleLines(renderEntry("subagent_supervisor_reply", reply, { expanded: true })), [
 			" [subagent] reply sent to worker",

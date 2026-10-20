@@ -36,6 +36,16 @@ describe("subagent tool options", () => {
 		assert.deepEqual(flattenSubagentToolOptions({ agent: "worker", task: "scan" }), { agent: "worker", task: "scan" });
 	});
 
+	it("rejects non-string workflow and output before dispatch, with or without options", () => {
+		for (const field of ["workflow", "output"]) {
+			for (const value of [true, false, 42, null, {}]) {
+				for (const options of [undefined, { context: "fresh" }]) {
+					assert.throws(() => flattenSubagentToolOptions({ [field]: value, options }), /must be a string/);
+				}
+			}
+		}
+	});
+
 	it("keeps top-level management fields and aliases, and rejects a field given in both places with different values", () => {
 		const flat = { action: "status", runId: "r1", view: "transcript", lines: 5, isolation: "worktree", maxRuntimeMs: 1000 };
 		assert.deepEqual(flattenSubagentToolOptions(flat), flat);
@@ -96,8 +106,8 @@ describe("registered subagent tools with options", () => {
 			assert.match(text(await call({ action: "schedule.create", workflow: "./flow.js", options: { every: "1h", name: "nightly" } })), /Trigger: every 1h/);
 			await assert.rejects(call({ agent: "worker", task: "scan", options: { acceptance: "checked", timeoutMs: 3000000000 } }), /timeoutMs must be a positive integer no larger/);
 			const theme = { fg(_name, value) { return value; }, bold(value) { return value; } };
-			assert.match(tools.parent.renderCall({ workflow: true, options: { preflight: { version: 1, lanes: [] } } }, theme).text, /preflight/);
-			assert.match(tools.parent.renderCall({ workflow: true, preflight: { version: 1, lanes: [] } }, theme).text, /preflight/);
+			assert.match(tools.parent.renderCall({ workflow: "true", options: { preflight: { version: 1, lanes: [] } } }, theme).text, /preflight/);
+			assert.match(tools.parent.renderCall({ workflow: "true", preflight: { version: 1, lanes: [] } }, theme).text, /preflight/);
 		`;
 		const env = { ...process.env };
 		delete env[SUBAGENT_CHILD_ENV];

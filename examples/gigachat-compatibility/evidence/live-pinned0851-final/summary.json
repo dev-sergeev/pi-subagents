@@ -1,0 +1,112 @@
+{
+  "format": 1,
+  "evidenceKind": "pi-gigachat-real-model-smoke",
+  "model": "gigachat-compatibility/GigaChat-3-Ultra",
+  "startedAt": "2026-10-20T07:46:47.156Z",
+  "selectedScenarios": [
+    "single-agent",
+    "workflow-file",
+    "async",
+    "supervisor",
+    "structured-output",
+    "watchdog"
+  ],
+  "providerRetries": "8",
+  "complete": true,
+  "passed": true,
+  "cases": [
+    {
+      "name": "single-agent",
+      "passed": true,
+      "evidence": "single-agent.json",
+      "facts": {
+        "activation": true,
+        "childRead": true,
+        "childCompleted": true,
+        "nonceInFinalParentAnswer": true,
+        "nonceInProviderDeliveredResult": true,
+        "publicStringOutputAndFreshOptions": true,
+        "foregroundSingleLaunch": true
+      }
+    },
+    {
+      "name": "workflow-file",
+      "passed": true,
+      "evidence": "workflow-file.json",
+      "facts": {
+        "activation": true,
+        "childRead": true,
+        "childCompleted": true,
+        "nonceInFinalParentAnswer": true,
+        "nonceInProviderDeliveredResult": true,
+        "publicStringOutputAndFreshOptions": true,
+        "fileWorkflow": true
+      }
+    },
+    {
+      "name": "async",
+      "passed": true,
+      "evidence": "async.json",
+      "facts": {
+        "activation": true,
+        "childRead": true,
+        "childCompleted": true,
+        "nonceInFinalParentAnswer": true,
+        "nonceInProviderDeliveredResult": true,
+        "publicStringOutputAndFreshOptions": true,
+        "actualAsyncRunId": true,
+        "awaitedActualRunId": true,
+        "actualAsyncResult": true
+      }
+    },
+    {
+      "name": "supervisor",
+      "passed": true,
+      "evidence": "supervisor.json",
+      "facts": {
+        "activation": true,
+        "childRead": true,
+        "childCompleted": true,
+        "nonceInFinalParentAnswer": true,
+        "nonceInProviderDeliveredResult": true,
+        "publicStringOutputAndFreshOptions": true,
+        "actualAsyncRunId": true,
+        "awaitedActualRunId": true,
+        "actualAsyncResult": true,
+        "pendingActualDecision": true,
+        "repliedActualDecision": true,
+        "childSupervisorTool": true,
+        "verifiedFinalAnswer": true
+      }
+    },
+    {
+      "name": "structured-output",
+      "passed": true,
+      "evidence": "structured-output.json",
+      "facts": {
+        "activation": true,
+        "childRead": true,
+        "childCompleted": true,
+        "nonceInFinalParentAnswer": true,
+        "nonceInProviderDeliveredResult": true,
+        "publicStringOutputAndFreshOptions": true,
+        "foregroundSingleLaunch": true,
+        "configuredStructuredProfile": true,
+        "validatedChildStructuredCapture": true
+      }
+    },
+    {
+      "name": "watchdog",
+      "passed": true,
+      "evidence": "watchdog.json",
+      "facts": {
+        "readActualFixture": true,
+        "realWarnToolCall": true,
+        "recordedWarning": true,
+        "laterRealRequestWithWarningResult": true,
+        "cleanReviewCompletion": true
+      }
+    }
+  ],
+  "completedAt": "2026-10-20T07:49:25.635Z"
+}

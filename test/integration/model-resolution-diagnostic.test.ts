@@ -24,7 +24,7 @@ function unresolvedModelPi(): PiCodingAgentModule {
 		ModelRuntime: { create: async () => ({}) },
 		SettingsManager: { create: () => ({}) },
 		DefaultResourceLoader: class { async reload() {} },
-		SessionManager: { inMemory: () => ({}), create: () => ({}) },
+		SessionManager: { inMemory: () => ({ getBranch: () => [] }), create: () => ({ getBranch: () => [] }) },
 		resolveCliModel: (({ cliModel }: { cliModel: string }) => ({
 			error: `Model "${cliModel}" not found. Use --list-models to see available models.`,
 		})) as unknown as PiCodingAgentModule["resolveCliModel"],
@@ -50,7 +50,7 @@ function bridgePi(replies: unknown[], childClaimsBridge = false): PiCodingAgentM
 			async reload() {}
 			getExtensions() { return { extensions: [], errors: [], runtime: { pendingProviderRegistrations: runtime.childClaimsBridge ? [{ name: "bridge", config: {}, extensionPath: "/bridge.ts" }] : [] } }; }
 		},
-		SessionManager: { inMemory: () => ({}), create: () => ({}) },
+		SessionManager: { inMemory: () => ({ getBranch: () => [] }), create: () => ({ getBranch: () => [] }) },
 		resolveCliModel: () => ({ model: { provider: "bridge", id: "model" } }),
 		createAgentSession: async () => {
 			const listeners: Array<(event: unknown) => void> = [];

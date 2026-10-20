@@ -1,5 +1,7 @@
 import { isDeepStrictEqual } from "node:util";
 import { Compile } from "typebox/compile";
+import type { Static } from "typebox";
+import type { SubagentParams } from "./schemas.ts";
 import type { SubagentParamsLike } from "../runs/foreground/subagent-executor.ts";
 import type { DisabledFeatureSurface } from "../shared/disabled-features.ts";
 import { closestMatch } from "../shared/edit-distance.ts";
@@ -10,6 +12,19 @@ const optionKeys = new Set(SUBAGENT_OPTION_KEYS);
 const ALIAS_HINTS: Record<string, string> = { runId: "id (top-level)", maxRuntimeMs: "options.timeoutMs", isolation: "worktree (top-level)" };
 const optionsValidator = Compile(SubagentOptionParams);
 
+/** Reject removed model forms before Pi's schema validator can coerce booleans into strings. */
+export function prepareSubagentToolArguments(args: unknown): Static<typeof SubagentParams> {
+	if (!args || typeof args !== "object" || Array.isArray(args)) throw new Error("subagent: arguments must be an object.");
+	if ("workflow" in args && args.workflow !== undefined && typeof args.workflow !== "string") {
+		throw new Error("subagent: workflow must be a string; use \"true\" for the reply block, not a boolean.");
+	}
+	if ("output" in args && args.output !== undefined && typeof args.output !== "string") {
+		throw new Error("subagent: output must be a string; use \"false\" to disable saving or \"true\" for the configured default.");
+	}
+	// SAFETY: Pi requires the post-validation type here and validates all remaining fields against the registered schema immediately after this hook.
+	return args as Static<typeof SubagentParams>;
+}
+
 /**
  * Lowers a model tool call's `options` into the flat params the executor reads.
  * Management fields given at the top level keep working, as in the flat shape older sessions declared.
@@ -17,6 +32,7 @@ const optionsValidator = Compile(SubagentOptionParams);
 export function flattenSubagentToolOptions(params: Record<string, unknown>, disabled?: DisabledFeatureSurface): SubagentParamsLike {
 	const removedTopLevel = removedModelWorkflowFieldError(params);
 	if (removedTopLevel) throw new Error(removedTopLevel);
+	prepareSubagentToolArguments(params);
 	const { options, ...topLevel } = params;
 	if (options === undefined) return topLevel;
 	if (!options || typeof options !== "object" || Array.isArray(options)) throw new Error("subagent: options must be an object.");

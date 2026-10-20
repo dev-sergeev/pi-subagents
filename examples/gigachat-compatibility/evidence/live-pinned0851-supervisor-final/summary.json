@@ -1,0 +1,21 @@
+{
+  "format": 1,
+  "evidenceKind": "pi-gigachat-real-model-smoke",
+  "model": "gigachat-compatibility/GigaChat-3-Ultra",
+  "startedAt": "2026-10-20T06:19:56.698Z",
+  "selectedScenarios": [
+    "supervisor"
+  ],
+  "providerRetries": "8",
+  "complete": true,
+  "passed": false,
+  "cases": [
+    {
+      "name": "supervisor",
+      "passed": false,
+      "evidence": "supervisor.json.gz",
+      "failure": "Scenario exceeded its ten-minute wall-clock deadline and was aborted."
+    }
+  ],
+  "completedAt": "2026-10-20T06:31:12.624Z"
+}

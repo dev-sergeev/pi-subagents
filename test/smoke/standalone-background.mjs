@@ -8,10 +8,8 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-if (process.platform !== "linux" || process.arch !== "x64") {
-	console.log(`SKIP standalone background smoke: requires Linux x64/bubblewrap; ${process.platform}/${process.arch} not validated.`);
-	process.exit(0);
-}
+assert.equal(process.platform, "linux", "standalone background smoke requires Linux x64/bubblewrap; other platforms are not validated");
+assert.equal(process.arch, "x64", "standalone background smoke requires Linux x64/bubblewrap; other architectures are not validated");
 
 const source = fileURLToPath(new URL("../../", import.meta.url));
 const binary = process.argv[2];
@@ -77,6 +75,7 @@ assert.notEqual(negative.status, 0, "bare Bun must not resolve a downloaded or i
 assert.match(negative.stderr, /Cannot find (?:module|package).*pi-coding-agent/);
 const version = run("version", "bwrap", [...sandbox, "--", "/stage/pi-native", "--version"]);
 assert.equal(version.status, 0, version.stderr);
+assert.equal(version.stdout.trim(), release.version, "official executable must report the pinned SDK version");
 fs.writeFileSync(path.join(root, "identity.json"), JSON.stringify({ binary, sha256: release.binarySha256, version: version.stdout.trim(), packed: tarball.filename, network: "unshared", automaticInstall: "disabled; negative control verified" }, null, 2));
 const bootstrap = "/stage/package/src/runs/background/binary-bootstrap.js";
 if (mode === "missing-bootstrap") fs.renameSync(path.join(root, "package/src/runs/background/binary-bootstrap.js"), path.join(root, "withheld-binary-bootstrap.js"));

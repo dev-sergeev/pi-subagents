@@ -1,0 +1,22 @@
+{
+  "name": "watchdog_ask",
+  "description": "Send one focused question when missing task status, intent or other orchestrator context prevents a concrete review judgment. Yields and ends this review so the orchestrator can handle the message and continue; no answer or follow-up review is required. Never ask for approval or permission, or after recording a warning. Question and evidence are capped at 1000 and 2000 characters.",
+  "parameters": {
+    "type": "object",
+    "required": [
+      "question",
+      "evidence"
+    ],
+    "properties": {
+      "question": {
+        "type": "string",
+        "description": "One focused question about missing task status, intent, or orchestrator context that prevents a concrete review judgment; not a request for permission. Capped at 1000 characters."
+      },
+      "evidence": {
+        "type": "string",
+        "description": "Concrete observations explaining why the missing context blocks review. Capped at 2000 characters."
+      }
+    },
+    "additionalProperties": false
+  }
+}

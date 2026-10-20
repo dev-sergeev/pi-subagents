@@ -57,7 +57,7 @@ const sourcePackage = JSON.parse(fs.readFileSync(path.join(root, "package.json")
 if (sourcePackage.private !== true) throw new Error("The source package must remain private; publish only ./dist-pkg");
 const copyFields = [
 	"name", "version", "description", "author", "license", "repository", "homepage", "bugs",
-	"bin", "dependencies", "peerDependencies", "peerDependenciesMeta", "engines", "keywords",
+	"bin", "dependencies", "peerDependencies", "peerDependenciesMeta", "engines", "keywords", "publishConfig",
 ];
 const publishedPackage = { type: sourcePackage.type };
 for (const field of copyFields) {

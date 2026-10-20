@@ -54,8 +54,8 @@ export type PublicSubagentExecutionNormalization<T> =
 	| { ok: true; params: T }
 	| { ok: false; error: string; mode: PublicSubagentExecutionMode };
 
-const RAW_SCRIPT_FORMS = "workflow: true or a workflow script path";
-const REMOVED_WORKFLOW_SCRIPT = "workflowScript was removed; write the script in one ```js workflow block in this reply and call subagent({ workflow: true }), or pass a script file as workflow: \"./path/to/script.js\".";
+const RAW_SCRIPT_FORMS = "workflow: \"true\" or a workflow script path";
+const REMOVED_WORKFLOW_SCRIPT = "workflowScript was removed; write the script in one ```js workflow block in this reply and call subagent({ workflow: \"true\" }), or pass a script file as workflow: \"./path/to/script.js\".";
 const REMOVED_WORKFLOW_SCRIPT_PATH = "workflowScriptPath was removed; pass the script file as workflow: \"./path/to/script.js\" (a workflow value containing '/' is a path).";
 
 /** A workflow value containing "/" or "\" is a script path; named workflow resource names contain neither. */
@@ -64,7 +64,7 @@ export function isWorkflowScriptPath(workflow: string): boolean {
 }
 
 /**
- * Model tool calls supply script text only through workflow: true (the reply block) or a script path.
+ * Model tool calls supply script text only through workflow: "true" (the reply block) or a script path.
  * workflowScript remains the internal carrier for slash, prompt-workflow, scheduled, RPC, and named-resource launches.
  */
 export function removedModelWorkflowFieldError(params: object): string | undefined {
@@ -102,12 +102,11 @@ export function normalizePublicSubagentExecution<T extends PublicSubagentExecuti
 	if (params.workflowScriptPath !== undefined) {
 		return { ok: false, error: REMOVED_WORKFLOW_SCRIPT_PATH, mode: params.action === undefined ? "workflow" : "management" };
 	}
-	// Some MCP clients send the boolean branch of the workflow union as the string "true" (#2600).
-	// Coerce it here so no path can resolve it as a named resource or script file called "true".
+	// The public string sentinel selects the reply block; never resolve it as a resource named "true".
 	if (params.workflow === "true") params = { ...params, workflow: true };
 	const workflow = params.workflow;
 	if (workflow !== undefined && workflow !== true && (typeof workflow !== "string" || !workflow.trim())) {
-		return { ok: false, error: "workflow must be true (the ```js workflow block in this reply), a script path containing '/', or a named workflow resource.", mode: "workflow" };
+		return { ok: false, error: "workflow must be \"true\" (the ```js workflow block in this reply), a script path containing '/', or a named workflow resource.", mode: "workflow" };
 	}
 	const hasNamedWorkflow = typeof workflow === "string" && !isWorkflowScriptPath(workflow);
 	// workflowScript is the internal script carrier; model tool calls cannot set it.
@@ -260,7 +259,7 @@ export function normalizePublicSubagentExecution<T extends PublicSubagentExecuti
 		};
 	}
 	if (!hasValidWorkflowInput) {
-		return { ok: false, error: "Execution requires either { agent, task? } for one child or workflow (true, a script path, or a named workflow resource) for orchestration.", mode: "workflow" };
+		return { ok: false, error: "Execution requires either { agent, task? } for one child or workflow (\"true\", a script path, or a named workflow resource) for orchestration.", mode: "workflow" };
 	}
 	return { ok: true, params };
 }

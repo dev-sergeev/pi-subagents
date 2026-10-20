@@ -9,7 +9,7 @@
 import { statSync } from "node:fs";
 import { debuglog } from "node:util";
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
-import type { AgentBeforeSettleEvent, AgentBeforeSettleEventResult, ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { AgentEndEvent, ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { buildCompletionKey, markSeenWithTtl } from "./completion-dedupe.ts";
 import {
 	type CompletionBatchConfig,
@@ -621,10 +621,33 @@ const processCompletionSendRegistry = processGlobal[completionSendRegistrySymbol
 
 // Reload replaces extension instances, not Pi's session manager or queued wakes.
 // A manager can change sessions; retain wakes only while its UUID is unchanged.
-type QueuedWakes = { sessionId: string; wakes: string[]; unansweredCompletions: Map<string, { reminded: boolean }> };
+type CompletionNotice = { reminded: boolean; lastEnd?: AgentEndEvent };
+type QueuedWakes = { sessionId: string; wakes: string[]; unansweredCompletions: Map<string, CompletionNotice> };
 const queuedWakesSymbol = Symbol.for("pi-subagents.queued-completion-wakes.v2");
 const wakeGlobal = globalThis as typeof globalThis & { [queuedWakesSymbol]?: WeakMap<object, QueuedWakes> };
 const queuedWakes = wakeGlobal[queuedWakesSymbol] ?? (wakeGlobal[queuedWakesSymbol] = new WeakMap<object, QueuedWakes>());
+
+type CompletionEndHandler = (event: AgentEndEvent, ctx: ExtensionContext) => void;
+const completionLifecycleSymbol = Symbol.for("pi-subagents.completion-lifecycle.v1");
+const lifecycleGlobal = globalThis as typeof globalThis & {
+	[completionLifecycleSymbol]?: WeakMap<ExtensionAPI["on"], Set<CompletionEndHandler>>;
+};
+const completionLifecycle = lifecycleGlobal[completionLifecycleSymbol]
+	?? (lifecycleGlobal[completionLifecycleSymbol] = new WeakMap<ExtensionAPI["on"], Set<CompletionEndHandler>>());
+
+function completionEndHandlers(pi: Pick<ExtensionAPI, "on">): Set<CompletionEndHandler> {
+	let owners = completionLifecycle.get(pi.on);
+	if (!owners) {
+		owners = new Set();
+		completionLifecycle.set(pi.on, owners);
+		// Pi 0.85.1's on() returns void. Keep one host handler and retire only our live owner.
+		const liveOwners = owners;
+		pi.on("agent_end", (event, ctx) => {
+			for (const handle of liveOwners) handle(event, ctx);
+		});
+	}
+	return owners;
+}
 
 type NotifyRunDetails = Omit<SubagentNotifyDetails, "resultPreview" | "childOutputs"> & {
 	childOutputs?: Array<Omit<SubagentNotifyChildOutput, "preview" | "previewTruncated" | "previewUnavailableReason">>;
@@ -639,7 +662,7 @@ function notifyRunDetails({ resultPreview: _preview, childOutputs, ...run }: Sub
 
 const COMPLETION_ACTION = "Read the saved results above and resume the already-authorized parent task, or report completion. If approval is required, explicitly ask the user. Do not silently yield, rerun completed work, or infer new authorization.";
 const HELD_COMPLETION_ACTION = "The user stopped the parent turn. Report these results at the user's next prompt and do not resume the stopped task unless asked.";
-function sendCompletion(pi: Pick<ParentWake, "sendMessage" | "isHeld">, items: PendingCompletion[], unstartedWakes: string[], unansweredCompletions: Map<string, { reminded: boolean }>, updateSettleSubscription: () => void): boolean {
+function sendCompletion(pi: Pick<ParentWake, "sendMessage" | "isHeld">, items: PendingCompletion[], unstartedWakes: string[], unansweredCompletions: Map<string, CompletionNotice>): boolean {
 	if (items.length === 0) return true;
 	const details = items.map((item) => item.details);
 	const triggerTurn = items.some((item) => item.triggerTurn);
@@ -654,7 +677,6 @@ function sendCompletion(pi: Pick<ParentWake, "sendMessage" | "isHeld">, items: P
 	if (tracked) {
 		unstartedWakes.push(content);
 		unansweredCompletions.set(content, { reminded: false });
-		updateSettleSubscription();
 	}
 	try {
 		const appended = pi.sendMessage(
@@ -674,7 +696,6 @@ function sendCompletion(pi: Pick<ParentWake, "sendMessage" | "isHeld">, items: P
 		if (tracked) {
 			unstartedWakes.splice(unstartedWakes.lastIndexOf(content), 1);
 			unansweredCompletions.delete(content);
-			updateSettleSubscription();
 		}
 		return false;
 	}
@@ -838,7 +859,7 @@ export function buildCompletionDetails(result: CompletionNotification): Subagent
 }
 
 export default function registerSubagentNotify(
-	pi: Pick<ExtensionAPI, "events"> & Partial<Pick<ExtensionAPI, "on">> & Pick<ParentWake, "sendMessage" | "isHeld">,
+	pi: Pick<ExtensionAPI, "events" | "on"> & Pick<ParentWake, "sendMessage" | "isHeld">,
 	state: Pick<SubagentState, "currentSessionId" | "completionOwnerId">,
 	options: RegisterSubagentNotifyOptions = {},
 ): CompletionNotifier {
@@ -850,10 +871,10 @@ export default function registerSubagentNotify(
 	const batchConfig = resolveCompletionBatchConfig(options.batchConfig);
 	const batchers = new Map<string, CompletionBatcher<PendingCompletion>>();
 	let unstartedWakes: string[] = [];
-	let unansweredCompletions = new Map<string, { reminded: boolean }>();
+	let unansweredCompletions = new Map<string, CompletionNotice>();
 	let bound = false;
 	let disposed = false;
-	let unsubscribeSettle: (() => void) | undefined;
+	let lifecycleActive = true;
 	const ownsResult = options.ownership?.owns
 		?? ((sessionId: string, completionOwnerId: unknown) => sessionId === state.currentSessionId
 			&& typeof completionOwnerId === "string"
@@ -889,7 +910,7 @@ export default function registerSubagentNotify(
 			void claim.outcome.then((outcome) => settle([item], outcome, outcome ? undefined : "send_failed"));
 		}
 		const claimedItems = claimed.map(({ item }) => item);
-		const sent = sendCompletion(pi, claimedItems, unstartedWakes, unansweredCompletions, updateSettleSubscription);
+		const sent = sendCompletion(pi, claimedItems, unstartedWakes, unansweredCompletions);
 		for (const { claim } of claimed) claim.settle?.(sent);
 		settle(claimedItems, sent, sent ? "send_accepted" : "send_failed");
 	};
@@ -966,61 +987,62 @@ export default function registerSubagentNotify(
 		return completion;
 	};
 
-	const handleBeforeSettle = (event: AgentBeforeSettleEvent): AgentBeforeSettleEventResult | undefined => {
-		if (disposed || event.outcome !== "completed" || event.continue || event.context.pendingMessages.length)
-			return;
-		const messages = event.context.contextMessages;
-		const ignored: Array<[string, { reminded: boolean }]> = [];
+	const handleAgentEnd: CompletionEndHandler = (event, ctx) => {
+		if (disposed || !lifecycleActive || !unansweredCompletions.size || pi.isHeld()
+			|| ctx.signal?.aborted || ctx.hasPendingMessages()) return;
+		const lastAssistant = event.messages.findLast(message => message.role === "assistant");
+		if (!lastAssistant || lastAssistant.stopReason !== "stop") return;
+		const entries = ctx.sessionManager.buildContextEntries();
+		const ignored: Array<[string, CompletionNotice]> = [];
 		for (const [content, notice] of unansweredCompletions) {
-			const index = messages.findLastIndex(message => message.role === "custom"
-				&& message.customType === "subagent-notify" && message.content === content);
+			// Concurrent registrations can share retained ownership; spend its budget once per native event.
+			if (notice.lastEnd === event) continue;
+			notice.lastEnd = event;
+			const index = entries.findLastIndex(entry => entry.type === "custom_message"
+				&& entry.customType === "subagent-notify" && entry.content === content);
 			if (index === -1) {
 				// Removed by compaction or branch switch; never revive a stale notice.
 				unansweredCompletions.delete(content);
 				continue;
 			}
-			const acted = messages.slice(index + 1).some(message => message.role === "assistant"
-				&& message.content.some(part => part.type === "toolCall"
-					|| (part.type === "text" && part.text.trim())));
+			let acted = false;
+			for (let i = index + 1; i < entries.length; i++) {
+				const entry = entries[i]!;
+				if (entry.type === "message" && entry.message.role === "assistant"
+					&& entry.message.content.some(part => part.type === "toolCall"
+						|| (part.type === "text" && part.text.trim()))) {
+					acted = true;
+					break;
+				}
+			}
 			if (acted) {
 				unansweredCompletions.delete(content);
 				continue;
 			}
 			ignored.push([content, notice]);
 		}
-		updateSettleSubscription();
 		if (!ignored.length)
 			return;
 		const fresh = ignored.filter(([, notice]) => !notice.reminded);
 		if (fresh.length) {
-			for (const [, notice] of fresh)
-				notice.reminded = true;
-			return {
-				entries: [...event.entries, {
-					type: "custom_message", customType: "subagent-completion-unanswered", display: true,
-					content: "Completion wake ended silently. See the subagent completion notices above. " + COMPLETION_ACTION,
-				}],
-				continue: true,
-			};
+			// agent_end still owns an active SDK run. Queue runnable context: 0.85.1's
+			// post-run drain consumes it through agent.continue() before agent_settled.
+			pi.sendMessage({
+				customType: "subagent-completion-unanswered", display: true,
+				content: "Completion wake ended silently. See the subagent completion notices above. " + COMPLETION_ACTION,
+			}, { triggerTurn: true, deliverAs: "followUp" });
+			for (const [, notice] of fresh) notice.reminded = true;
+			return;
 		}
-		for (const [content] of ignored)
-			unansweredCompletions.delete(content);
-		updateSettleSubscription();
-		return {
-			entries: [...event.entries, {
-				type: "custom_message", customType: "subagent-completion-unhandled", display: true,
-				content: "UNHANDLED: no response to the subagent completion notices above. Reminder budget exhausted; results remain saved. No work was rerun or approval inferred.",
-			}],
-		};
+		// Context-only sends persist when the SDK flushes the finished run; no further wake.
+		pi.sendMessage({
+			customType: "subagent-completion-unhandled", display: true,
+			content: "UNHANDLED: no response to the subagent completion notices above. Reminder budget exhausted; results remain saved. No work was rerun or approval inferred.",
+		}, { triggerTurn: false });
+		for (const [content] of ignored) unansweredCompletions.delete(content);
 	};
-	const updateSettleSubscription = (): void => {
-		if (!disposed && unansweredCompletions.size && !unsubscribeSettle)
-			unsubscribeSettle = pi.on?.("agent_before_settle", handleBeforeSettle);
-		if (disposed || !unansweredCompletions.size) {
-			unsubscribeSettle?.();
-			unsubscribeSettle = undefined;
-		}
-	};
+	const endHandlers = completionEndHandlers(pi);
+	endHandlers.add(handleAgentEnd);
 	const unsubscribeAsync = pi.events.on(SUBAGENT_ASYNC_COMPLETE_EVENT, (data) => {
 		if ((data as CompletionNotification).awaitedByWorkflow === true) return;
 		void deliver(data as CompletionNotification);
@@ -1042,9 +1064,9 @@ export default function registerSubagentNotify(
 			const sessionId = sessionManager.getSessionId(); // UUID, not state.currentSessionId's possible file path.
 			const retained = queuedWakes.get(sessionManager);
 			const wakes = retained?.sessionId === sessionId ? retained.wakes : [];
-			const unanswered = retained?.sessionId === sessionId && retained.unansweredCompletions instanceof Map
+			const unanswered = retained?.sessionId === sessionId
 				? retained.unansweredCompletions
-				: new Map<string, { reminded: boolean }>(wakes.map(content => [content, { reminded: false }]));
+				: new Map<string, CompletionNotice>();
 			// Before the first bind, local wakes belong to this session; after it, to the previous one.
 			if (!bound) {
 				wakes.push(...unstartedWakes);
@@ -1054,15 +1076,14 @@ export default function registerSubagentNotify(
 			unstartedWakes = wakes;
 			unansweredCompletions = unanswered;
 			queuedWakes.set(sessionManager, { sessionId, wakes, unansweredCompletions });
-			updateSettleSubscription();
+			lifecycleActive = true;
 		},
 		sessionShutdown(reason) {
 			if (reason !== "reload") {
 				unstartedWakes.length = 0;
 				unansweredCompletions.clear();
 			}
-			unsubscribeSettle?.();
-			unsubscribeSettle = undefined;
+			lifecycleActive = false;
 		},
 		flush() {
 			for (const batcher of batchers.values()) batcher.flush();
@@ -1070,7 +1091,7 @@ export default function registerSubagentNotify(
 		dispose() {
 			if (disposed) return;
 			disposed = true;
-			updateSettleSubscription();
+			endHandlers.delete(handleAgentEnd);
 			for (const batcher of batchers.values()) settle(batcher.dispose(), false, "dispose_pending");
 			batchers.clear();
 			// Retained state belongs to the session manager; disposal must not erase it on reload.

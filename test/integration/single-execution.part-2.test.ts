@@ -855,16 +855,22 @@ if (!fs.existsSync(${JSON.stringify(holdPath)})) { console.log('{}'); } else {
 					getSessionId: () => "replaced-runtime-session",
 					getSessionFile: () => path.join(tempDir, "replaced-runtime-session.jsonl"),
 					getEntries: () => [],
+					getBranch: () => [],
 				},
 			};
 			const startRuntime = async (reason: string) => {
 				const bus = createEventBus();
 				const handlers = new Map<string, Handler[]>();
 				let tool: Tool | undefined;
+				const tools = new Map<string, Tool & { name: string }>();
+				let activeTools: string[] = [];
 				const pi = new Proxy({
 					events: bus,
 					on(event: string, handler: Handler) { handlers.set(event, [...(handlers.get(event) ?? []), handler]); },
-					registerTool(definition: Tool & { name: string }) { if (definition.name === "subagent") tool = definition; },
+					registerTool(definition: Tool & { name: string }) { tools.set(definition.name, definition); if (definition.name === "subagent") tool = definition; },
+					getAllTools() { return [...tools.values()]; },
+					getActiveTools() { return activeTools; },
+					setActiveTools(names: string[]) { activeTools = names; },
 					sendMessage() {},
 					getSessionName() { return undefined; },
 				}, { get: (target, prop) => prop in target ? target[prop as keyof typeof target] : () => undefined });
@@ -981,6 +987,8 @@ if (!fs.existsSync(${JSON.stringify(holdPath)})) { console.log('{}'); } else {
 		mockPi.onCall({ output: "registered structured second node", delay: 100 });
 		const extensionEvents = createEventBus();
 		const runtimeHandlers = new Map<string, Array<(event: unknown, ctx: ReturnType<typeof makeMinimalCtx>) => void>>();
+		const tools = new Map<string, { name: string }>();
+		let activeTools: string[] = [];
 		const fakePi = new Proxy({
 			events: extensionEvents,
 			on(event: string, handler: (event: unknown, ctx: ReturnType<typeof makeMinimalCtx>) => void) {
@@ -989,7 +997,10 @@ if (!fs.existsSync(${JSON.stringify(holdPath)})) { console.log('{}'); } else {
 				runtimeHandlers.set(event, handlers);
 				return () => runtimeHandlers.set(event, (runtimeHandlers.get(event) ?? []).filter((entry) => entry !== handler));
 			},
-			registerTool() {},
+			registerTool(definition: { name: string }) { tools.set(definition.name, definition); },
+			getAllTools() { return [...tools.values()]; },
+			getActiveTools() { return activeTools; },
+			setActiveTools(names: string[]) { activeTools = names; },
 			registerCommand() {},
 			registerShortcut() {},
 			registerMessageRenderer() {},
@@ -1011,6 +1022,7 @@ if (!fs.existsSync(${JSON.stringify(holdPath)})) { console.log('{}'); } else {
 				getSessionId: () => "registered-delegation-session",
 				getSessionFile: () => path.join(tempDir, "registered-delegation-session.jsonl"),
 				getEntries: () => [],
+				getBranch: () => [],
 			},
 		};
 		const started: SubagentDelegationStarted[] = [];

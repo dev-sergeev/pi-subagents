@@ -4,6 +4,7 @@ import type { Model, ProviderHeaders } from "@earendil-works/pi-ai";
 import { Type, type Static } from "typebox";
 import { resolveModelCandidate } from "../runs/shared/model-resolution.ts";
 import { agentStreamOptions } from "../shared/agent-stream-options.ts";
+import { streamRegistryModel } from "../shared/registry-stream.ts";
 import { opencodeSessionHeaders } from "../shared/opencode-session-headers.ts";
 import { resolveEffectiveThinking, splitKnownThinkingSuffix, THINKING_LEVELS, toModelInfo } from "../shared/model-info.ts";
 import { createWatchdogDiffTool, WATCHDOG_DIFF_TOOL_NAME, type WatchdogDiffBaseline } from "./diff-tool.ts";
@@ -22,7 +23,10 @@ import {
 
 const WATCHDOG_ALLOWED_TOOL_NAMES = new Set(["read", "grep", "find", "ls", "watchdog_warn", WATCHDOG_DIFF_TOOL_NAME]);
 
-const WatchdogAskParams = Type.Object({ question: Type.String(), evidence: Type.String() }, { additionalProperties: false });
+const WatchdogAskParams = Type.Object({
+	question: Type.String({ description: "One focused question about missing task status, intent, or orchestrator context that prevents a concrete review judgment; not a request for permission. Capped at 1000 characters." }),
+	evidence: Type.String({ description: "Concrete observations explaining why the missing context blocks review. Capped at 2000 characters." }),
+}, { additionalProperties: false });
 
 const WatchdogWarnParams = Type.Object({
 	severity: Type.String({ enum: WATCHDOG_WARNING_SEVERITIES, description: "concern for actionable risk, blocker for a likely wrong or unsafe outcome" }),
@@ -30,7 +34,7 @@ const WatchdogWarnParams = Type.Object({
 	summary: Type.String({ description: "One concise sentence naming the issue." }),
 	evidence: Type.String({ description: "Specific evidence from the turn delta or inspected files." }),
 	recommendedAction: Type.String({ description: "Specific action the parent should take before accepting or continuing." }),
-	category: Type.Optional(Type.String({ enum: WATCHDOG_WARNING_CATEGORIES })),
+	category: Type.Optional(Type.String({ enum: WATCHDOG_WARNING_CATEGORIES, description: "Category of the actionable warning; defaults to other when omitted." })),
 }, { additionalProperties: false });
 
 type WatchdogWarnParams = Static<typeof WatchdogWarnParams>;
@@ -43,6 +47,7 @@ interface WatchdogReviewAuth {
 	apiKey?: string;
 	headers?: ProviderHeaders;
 	env?: Record<string, string>;
+	baseUrl?: string;
 }
 
 export interface WatchdogReviewModelSelection {
@@ -126,11 +131,7 @@ async function resolveReviewAuth(ctx: ExtensionContext, model: RegistryModel): P
 		throw new WatchdogAuthError(`Watchdog model auth failed for ${fullModelId(model)}: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
 	}
 	if (auth.ok === false) throw new WatchdogAuthError(`Watchdog model auth failed for ${fullModelId(model)}: ${auth.error}`);
-	return {
-		...(auth.apiKey ? { apiKey: auth.apiKey } : {}),
-		...(auth.headers ? { headers: auth.headers } : {}),
-		...(auth.env ? { env: auth.env } : {}),
-	};
+	return { apiKey: auth.apiKey, headers: auth.headers, env: auth.env, baseUrl: auth.baseUrl };
 }
 
 export async function resolveWatchdogReviewModel(
@@ -277,13 +278,13 @@ async function runWatchdogAttempt(ctx: ExtensionContext, request: WatchdogReview
 	});
 	if (ctx.signal?.aborted || request.signal?.aborted) return { result: { stopReason: "aborted" } };
 	const auth = selection.auth;
-	const baseStreamFn: StreamFn = options.streamFn ?? ((model, context, streamOptions) => ctx.modelRegistry.streamSimple(model, context, streamOptions));
+	const baseStreamFn: StreamFn = options.streamFn ?? ((model, context, streamOptions) => streamRegistryModel(ctx.modelRegistry, model, context, streamOptions));
 	const sessionId = ctx.sessionManager.getSessionId();
 	const streamFn: StreamFn = (model, context, streamOptions) => {
 		// Agent may enter one final loop iteration after an aborted mixed tool batch.
 		// Never send that iteration to the provider after an intentional yield.
 		if (clarification) throw new Error("Watchdog review yielded for clarification.");
-		return baseStreamFn(model, context, {
+		return baseStreamFn(auth.baseUrl && auth.baseUrl !== model.baseUrl ? { ...model, baseUrl: auth.baseUrl } : model, context, {
 			...streamOptions,
 			...(auth.apiKey ? { apiKey: auth.apiKey } : {}),
 			env: auth.env || streamOptions?.env ? { ...(auth.env ?? {}), ...(streamOptions?.env ?? {}) } : undefined,

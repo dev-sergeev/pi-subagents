@@ -1,0 +1,10 @@
+{
+  "endpoint": "https://api.giga.chat/v1/functions/validate",
+  "httpStatus": 401,
+  "body": {
+    "status": 401,
+    "message": "Unauthorized"
+  },
+  "json_ai_rules_version": null,
+  "accepted": false
+}

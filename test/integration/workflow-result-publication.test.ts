@@ -31,7 +31,7 @@ describe("host workflow result publication", { skip: !available }, () => {
 			cleanupTimers: new Map(), lastUiContext: null, poller: null, completionSeen: new Map(), watcher: null,
 			watcherRestartTimer: null, resultFileCoalescer: { schedule: () => false, clear() {} },
 		};
-		const pi = { events: createEventBus(), getSessionName: () => undefined, isHeld: () => false, sendMessage(message: { customType: string; content: string }) { notices.push(message); } };
+		const pi = { events: createEventBus(), on() {}, getSessionName: () => undefined, isHeld: () => false, sendMessage(message: { customType: string; content: string }) { notices.push(message); } };
 		const executor = createSubagentExecutor!({ pi, state, config: {}, asyncByDefault: false, tempArtifactsDir: tempDir,
 			getSubagentSessionRoot: () => tempDir, expandTilde: (p: string) => p, discoverAgents: () => ({ agents: [makeAgent("worker")] }),
 		});
@@ -93,7 +93,7 @@ describe("host workflow result publication", { skip: !available }, () => {
 		};
 		const pi = { getSessionName: () => undefined, events: { on: () => () => {}, emit(event: string, data: unknown) {
 			if (event === SUBAGENT_ASYNC_COMPLETE_EVENT) { assert.equal((data as { completionOwnerId: string }).completionOwnerId, owner); delivered.resolve(); }
-		} }, isHeld: () => false, sendMessage(message: { customType?: string; content?: string }) { notifications++; notificationContent = message.content ?? ""; if (message.customType) notificationTypes.push(message.customType); } };
+		} }, on() {}, isHeld: () => false, sendMessage(message: { customType?: string; content?: string }) { notifications++; notificationContent = message.content ?? ""; if (message.customType) notificationTypes.push(message.customType); } };
 		const notifier = registerSubagentNotify(pi, state, { batchConfig: { enabled: false } });
 		const watcher = createResultWatcher(pi, state, RESULTS_DIR, 60000, { platform: "darwin", coalesceDelayMs: 0, notifier,
 			hasDeliveryDemand: () => [...state.asyncJobs.values()].some((job) => job.status === "running" || job.status === "queued"),

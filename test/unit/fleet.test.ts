@@ -5,7 +5,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { describe, it } from "node:test";
 import { visibleWidth, type MarkdownTheme } from "@earendil-works/pi-tui";
-import { createEventBus } from "@earendil-works/pi-coding-agent";
+import { createEventBus, ModelRegistry, ModelRuntime } from "@earendil-works/pi-coding-agent";
 import { registerInspector } from "../../src/api/inspectors.ts";
 import { getInspectorPlugins, registerInspectorEventListener } from "../../src/inspectors/plugins.ts";
 import { EXTERNAL_RUN_REGISTRY_KEY, EXTERNAL_RUN_REGISTRY_VERSION, registerExternalRun } from "../../src/api/external-runs.ts";
@@ -19,7 +19,7 @@ import type { HerdrClient } from "../../src/inspectors/herdr/client.ts";
 import { createHerdrInspectorPlugin } from "../../src/inspectors/herdr/plugin.ts";
 import type { SubagentState } from "../../src/shared/types.ts";
 import { fauxAssistantMessage } from "@earendil-works/pi-ai/providers/faux";
-import { createAssistantMessageEventStream } from "@earendil-works/pi-ai";
+import { createAssistantMessageEventStream, InMemoryCredentialStore, type Context, type Model } from "@earendil-works/pi-ai";
 import { updateActiveRunIndex } from "../../src/runs/background/active-run-index.ts";
 
 function clearExternalRuns(): void {
@@ -112,23 +112,32 @@ const markdownTheme: MarkdownTheme = {
 };
 
 describe("native subagent fleet", () => {
-	it("rewrites an authored prompt from guidance without persistence", async () => {
-		const calls: unknown[] = [];
-		const streamFn = (_model: never, context: unknown) => {
-			calls.push(context);
-			const stream = createAssistantMessageEventStream();
-			queueMicrotask(() => stream.push({ type: "done", reason: "stop", message: fauxAssistantMessage("Rewritten task", { stopReason: "stop" }) }));
-			return stream;
-		};
-		const model = { provider: "faux", id: "rewrite", api: "faux", input: ["text"], reasoning: false, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 1000, maxTokens: 100 };
+	it("rewrites an authored task from guidance through a registered provider", async () => {
+		const calls: Context[] = [];
+		const model: Model<"fleet-rewrite"> = { provider: "fleet-rewrite", id: "rewrite", name: "Rewrite", api: "fleet-rewrite", baseUrl: "https://rewrite.invalid", input: ["text"], reasoning: false, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 1000, maxTokens: 100 };
+		const runtime = await ModelRuntime.create({ credentials: new InMemoryCredentialStore(), modelsPath: null, refreshOnCreate: false });
+		const modelRegistry = new ModelRegistry(runtime);
+		modelRegistry.registerProvider(model.provider, {
+			api: model.api,
+			apiKey: "fleet-test-key",
+			baseUrl: model.baseUrl,
+			models: [model],
+			streamSimple(_model, context) {
+				calls.push(context);
+				const prompt = JSON.stringify(context.messages);
+				assert.match(prompt, /Original task/);
+				assert.match(prompt, /Make it narrower/);
+				assert.match(prompt, /Runtime context/);
+				const stream = createAssistantMessageEventStream();
+				queueMicrotask(() => stream.push({ type: "done", reason: "stop", message: fauxAssistantMessage("Rewritten task", { stopReason: "stop" }) }));
+				return stream;
+			},
+		});
 		const ctx = {
 			model,
 			signal: undefined,
 			sessionManager: { getSessionId: () => "fleet-rewrite-session" },
-			modelRegistry: {
-				async getApiKeyAndHeaders() { return { ok: true as const, apiKey: "test" }; },
-				streamSimple: streamFn,
-			},
+			modelRegistry,
 		} as never;
 		const rewritten = await rewritePromptWithGuidance({
 			ctx,
@@ -138,8 +147,7 @@ describe("native subagent fleet", () => {
 			guidance: "Make it narrower",
 		});
 		assert.equal(rewritten, "Rewritten task");
-		assert.match(JSON.stringify(calls), /Original task/);
-		assert.match(JSON.stringify(calls), /Make it narrower/);
+		assert.equal(calls.length, 1);
 	});
 
 	it("collects current-session foreground and flattened async children", () => {

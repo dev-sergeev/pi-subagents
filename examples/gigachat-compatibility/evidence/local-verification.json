@@ -1,0 +1,293 @@
+{
+  "status": "pinned-local-verification-passed",
+  "nodeVersion": "24.22.0",
+  "sdkVersion": "0.85.1",
+  "providerVersion": "0.6.4",
+  "typeboxVersion": "1.3.7",
+  "parentReplyInput": "replyText",
+  "checks": [
+    {
+      "name": "production-typecheck",
+      "command": "npm run typecheck",
+      "exitCode": 0
+    },
+    {
+      "name": "full-unit-suite",
+      "command": "node --experimental-strip-types --import ./test/support/isolated-temp-root.mjs --test --test-concurrency=2 test/unit/*.test.ts",
+      "exitCode": 0,
+      "passed": 4079,
+      "skipped": 17,
+      "failed": 0
+    },
+    {
+      "name": "full-integration-suite",
+      "command": "node --experimental-strip-types --import ./test/support/register-loader.mjs --test --test-concurrency=1 test/integration/*.test.ts",
+      "exitCode": 0,
+      "passed": 1249,
+      "skipped": 8,
+      "failed": 0
+    },
+    {
+      "name": "real-pi-sdk-smoke-with-faux-provider",
+      "command": "npm run test:smoke:tool-activation",
+      "exitCode": 0,
+      "passed": 4,
+      "failed": 0,
+      "coldPackageToolCharacters": 353,
+      "activatedPackageToolCharacters": 5483,
+      "activatedCharacterBudget": 5500,
+      "liveGigachatInference": false
+    },
+    {
+      "name": "final-history-boundary-regressions",
+      "command": "node --experimental-strip-types --import ./test/support/isolated-temp-root.mjs --test test/unit/session-history-guard.test.ts",
+      "exitCode": 0,
+      "passed": 2,
+      "failed": 0,
+      "note": "Final boundary parser uses a compiled TypeBox contract. Context abort on Pi 0.85.1 can enter a provider callback with an already-aborted signal; it cannot produce a successful foreign-history turn."
+    },
+    {
+      "name": "isolated-clean-install-compiled-package",
+      "command": "node --experimental-strip-types test/smoke/clean-install.mjs <fresh-directory> 0.85.1",
+      "exitCode": 0,
+      "platform": "darwin-arm64",
+      "actualSdkAndChildSession": true,
+      "realInferenceProvider": false,
+      "observed": [
+        "compiled package entry loaded through Jiti",
+        "public SDK/default child factory: local prompt, API identity, startup/shutdown",
+        "native coordinator/leaf tools: real SDK registration and explicit allowlists",
+        "packed node_modules selects compiled JavaScript"
+      ],
+      "note": "A /tmp versus /private/tmp alias mismatch in the smoke harness was fixed by canonicalizing its owned root. This is not Linux standalone acceptance."
+    },
+    {
+      "name": "final-package-build",
+      "command": "npm run build:pkg",
+      "exitCode": 0
+    },
+    {
+      "name": "final-compiled-declaration-identity",
+      "command": "node examples/gigachat-compatibility/collect.mjs --sdk-only --package-root ./dist-pkg --out <fresh-directory>",
+      "exitCode": 0,
+      "functions": 35,
+      "scenarios": 13,
+      "allHashesAndFunctionBodiesMatchProviderCapture": true,
+      "providerCapture": "provider-pinned0851-final/manifest.json",
+      "officialValidation": "official-validator-pinned0851-final/summary.json",
+      "note": "All 35 final compiled bodies/hashes match the exact officially accepted provider snapshot, including target-before-payload order. HTTP 429 attempts remain separate historical evidence."
+    },
+    {
+      "name": "native-pinned-sdk-compaction-acceptance",
+      "command": "PI_SUBAGENTS_NATIVE_SDK=<isolated-pinned-host> node --experimental-strip-types --import ./test/support/isolated-temp-root.mjs --test test/unit/acceptance-compaction.test.ts",
+      "exitCode": 0,
+      "passed": 8,
+      "skipped": 0,
+      "failed": 0,
+      "realSdk": true,
+      "liveGigachatInference": false,
+      "note": "All foreground/runner, append/replace and fenced/structured combinations used real Pi 0.85.1 compaction with synthetic local HTTP responses. These eight cases were skipped in the full unit invocation and exercised separately."
+    },
+    {
+      "name": "final-ordered-supervisor-contract-regressions",
+      "command": "node --experimental-strip-types --import ./test/support/isolated-temp-root.mjs --test test/unit/native-supervisor-channel.test.ts test/unit/supervisor-ask-registration.test.ts",
+      "exitCode": 0,
+      "passed": 59,
+      "failed": 0,
+      "note": "Executed after fixing declaration order. Covers real child reply delivery, no legacy message alias, interview parsing, ownership, cancellation and nested supervision."
+    },
+    {
+      "name": "compatibility-implementation-and-tooling-lint",
+      "command": "npx oxlint src/intercom/supervisor-schema.ts src/shared/registry-stream.ts src/shared/agent-stream-options.ts src/extension/session-history-guard.ts examples/gigachat-compatibility/runtime.mjs examples/gigachat-compatibility/collect.mjs examples/gigachat-compatibility/validate.mjs examples/gigachat-compatibility/smoke.mjs test/integration/gigachat-model-contract.test.ts test/unit/structured-output-wrapper.test.ts test/unit/gigachat-validator.test.ts",
+      "exitCode": 0
+    }
+  ],
+  "externalAcceptance": "acceptance-pinned0851.json",
+  "limitations": [
+    "Repository-wide lint was not passing; the scoped lint above is not a whole-repository pass.",
+    "The official Linux x64 standalone 0.85.1 eighteen-mode matrix cannot execute on Darwin; its CI gate remains required.",
+    "The full unit invocation reported 17 environment-gated skips; its eight native compaction cases passed separately above. Other optional gates and the eight skipped integration cases were not enabled, including external Claude/Codex/Cursor maintainer smokes."
+  ],
+  "historicalPi087Snapshot": {
+  "sdkVersion": "0.87.0",
+  "status": "local-implementation-verified-external-acceptance-blocked",
+  "nodeVersion": "24.22.0",
+  "checks": [
+    {
+      "name": "production-typecheck",
+      "command": "npm run typecheck",
+      "exitCode": 0
+    },
+    {
+      "name": "package-build",
+      "command": "npm run build:pkg",
+      "exitCode": 0
+    },
+    {
+      "name": "full-unit-suite",
+      "command": "node --experimental-strip-types --import ./test/support/isolated-temp-root.mjs --test --test-concurrency=2 test/unit/*.test.ts",
+      "exitCode": 0,
+      "passed": 4104,
+      "skipped": 17,
+      "failed": 0
+    },
+    {
+      "name": "full-integration-suite",
+      "command": "node --experimental-strip-types --import ./test/support/register-loader.mjs --test --test-concurrency=1 test/integration/*.test.ts",
+      "exitCode": 0,
+      "passed": 1249,
+      "skipped": 8,
+      "failed": 0
+    },
+    {
+      "name": "final-history-and-wrapper-regressions",
+      "command": "node --experimental-strip-types --import ./test/support/isolated-temp-root.mjs --test test/unit/declaration-pinning.test.ts test/unit/structured-output-wrapper.test.ts",
+      "exitCode": 0,
+      "passed": 17,
+      "failed": 0,
+      "note": "Includes the background-wake regression added after the full-suite run."
+    },
+    {
+      "name": "final-model-execution-regressions",
+      "command": "node --experimental-strip-types --import ./test/support/register-loader.mjs --test test/integration/gigachat-model-contract.test.ts",
+      "exitCode": 0,
+      "passed": 18,
+      "failed": 0
+    },
+    {
+      "name": "real-pi-sdk-smoke-with-faux-provider",
+      "command": "npm run test:smoke:tool-activation",
+      "exitCode": 0,
+      "passed": 3,
+      "failed": 0,
+      "coldPackageToolCharacters": 428,
+      "activatedPackageToolCharacters": 5481,
+      "activatedCharacterBudget": 5500,
+      "liveGigachatInference": false
+    },
+    {
+      "name": "new-behavior-test-lint",
+      "command": "npx oxlint test/unit/structured-output-wrapper.test.ts test/integration/gigachat-model-contract.test.ts",
+      "exitCode": 0
+    },
+    {
+      "name": "repository-wide-lint",
+      "command": "npx oxlint .",
+      "exitCode": 1,
+      "note": "Reported widespread anti-slop diagnostics, including untouched src/shared/file-system-retry.ts and src/watchdog/model-selection.ts. Not represented as passing."
+    },
+    {
+      "name": "new-supervisor-schema-and-acceptance-tooling-lint",
+      "command": "npx oxlint src/intercom/supervisor-schema.ts examples/gigachat-compatibility/collect.mjs examples/gigachat-compatibility/validate.mjs examples/gigachat-compatibility/runtime.mjs test/unit/structured-output-wrapper.test.ts test/integration/gigachat-model-contract.test.ts",
+      "exitCode": 0
+    },
+    {
+      "name": "strict-validator-cli-control-flow",
+      "harness": "Node 24 fetch preload with six synthetic transport responses; no official validation requests",
+      "syntheticTransport": true,
+      "passed": 6,
+      "failed": 0,
+      "providerAcceptance": false,
+      "officialValidation": false,
+      "temporaryResponsesRemoved": true,
+      "cases": [
+        {
+          "name": "known-optional-warnings",
+          "exitCode": 0
+        },
+        {
+          "name": "http-200-with-errors",
+          "exitCode": 1
+        },
+        {
+          "name": "unknown-warning",
+          "exitCode": 1
+        },
+        {
+          "name": "compound-unapproved-warning",
+          "exitCode": 1
+        },
+        {
+          "name": "missing-rules-version",
+          "exitCode": 1
+        },
+        {
+          "name": "unauthorized",
+          "exitCode": 1
+        }
+      ]
+    },
+    {
+      "name": "final-built-package-declaration-identity",
+      "command": "node examples/gigachat-compatibility/collect.mjs --sdk-only --package-root ./dist-pkg --out /tmp/pi-subagents-gigachat-cli-stable-evidence",
+      "exitCode": 0,
+      "functions": 35,
+      "scenarios": 13,
+      "matchesSavedSdkFunctionHashes": true,
+      "officialValidation": false,
+      "temporaryCollectionRemoved": true
+    },
+    {
+      "name": "authenticated-official-validator-sdk-schemas",
+      "exitCode": 0,
+      "realOfficialApi": true,
+      "functions": 35,
+      "jsonAiRulesVersion": "1.0.6",
+      "allFunctionsAccepted": true,
+      "providerAcceptance": false,
+      "evidence": "official-validator-authenticated/summary.json"
+    },
+    {
+      "name": "real-ultra-prompt-only-and-normal-tool-session",
+      "model": "GigaChat-3-Ultra",
+      "promptOnlyPassed": true,
+      "normalToolSessionPassed": false,
+      "providerPathAcceptance": false,
+      "evidence": "ultra-provider-runtime.json"
+    },
+    {
+      "name": "official-warning-format-cli-regressions",
+      "command": "node --experimental-strip-types --import ./test/support/isolated-temp-root.mjs --test test/unit/gigachat-validator.test.ts",
+      "exitCode": 0,
+      "passed": 5,
+      "failed": 0,
+      "positiveCaseFailedBeforeFix": true,
+      "transport": "replayed real official response plus negative cases; no live requests"
+    },
+    {
+      "name": "actual-helper-sdk-auth-initialization",
+      "harness": "Throwaway helper smoke, removed afterward; actual installed provider library and Pi SDK, synthetic local credential only",
+      "exitCode": 0,
+      "failedBeforeFix": true,
+      "modelInferenceExecuted": false
+    },
+    {
+      "name": "followup-production-typecheck",
+      "command": "npm run typecheck",
+      "exitCode": 0
+    },
+    {
+      "name": "followup-package-build",
+      "command": "npm run build:pkg",
+      "exitCode": 0
+    },
+    {
+      "name": "followup-acceptance-tooling-and-new-tests-lint",
+      "command": "npx oxlint src/intercom/supervisor-schema.ts examples/gigachat-compatibility/collect.mjs examples/gigachat-compatibility/runtime.mjs examples/gigachat-compatibility/validate.mjs test/unit/structured-output-wrapper.test.ts test/unit/gigachat-validator.test.ts test/integration/gigachat-model-contract.test.ts",
+      "exitCode": 0
+    }
+  ],
+  "externalAcceptance": {
+    "providerDeclarationsCollected": false,
+    "liveGigachatSmokesExecuted": false,
+    "blockers": [
+      "message.content.filter is not a function in installed provider while processing Pi 0.87 system transcript with toolsAdded; occurs before HTTP.",
+      "Provider migration is explicitly outside the specification scope; latest published provider is also 0.6.4."
+    ],
+    "sdkSchemasOfficialValidatorPassed": true,
+    "providerSchemasOfficialValidatorPassed": false,
+    "liveGigachatPromptOnlyExecuted": true,
+    "model": "GigaChat-3-Ultra"
+  }
+}
+}

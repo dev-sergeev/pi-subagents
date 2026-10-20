@@ -4,7 +4,6 @@ import type { Details, SubagentState } from "../../shared/types.ts";
 import { resolveWaitToolConfig, waitForSubagents } from "./subagent-wait.ts";
 import type { WaitSubscriptionManager } from "./wait-subscriptions.ts";
 import { finalizeToolResult } from "../../extension/tool-result.ts";
-import { registerPinnedTool } from "../../extension/declaration-pinning.ts";
 
 export function registerWaitTool(
 	pi: ExtensionAPI,
@@ -53,5 +52,5 @@ Timeout or a user message ends the wait without error; work keeps running.${enab
 		parameters: SubagentWaitParams,
 		execute,
 	};
-	registerPinnedTool(pi, primaryTool);
+	pi.registerTool(primaryTool);
 }

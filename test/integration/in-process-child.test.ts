@@ -369,7 +369,7 @@ function stubPi(session: Record<string, unknown> = {}, onReload?: () => void): P
 		ModelRuntime: { create: async () => ({}) },
 		SettingsManager: { create: () => ({}) },
 		DefaultResourceLoader: class { async reload() { await new Promise((resolve) => setTimeout(resolve, 10)); onReload?.(); } },
-		SessionManager: { inMemory: () => ({}) },
+		SessionManager: { inMemory: () => ({ getBranch: () => [] }) },
 		resolveCliModel: () => ({}),
 		createAgentSession: async () => ({ session: { bindExtensions: async () => {}, dispose() {}, extensionRunner: { hasHandlers: () => false }, subscribe: () => () => {}, prompt: async () => {}, abort: async () => {}, steer: async () => {}, followUp: async () => {}, messages: [], sessionId: "s", ...session } }),
 	} as unknown as PiCodingAgentModule;

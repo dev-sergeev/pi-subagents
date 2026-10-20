@@ -1,0 +1,289 @@
+{
+  "evidenceKind": "pi-gigachat-http-functions",
+  "providerAcceptance": true,
+  "allFunctionsAccepted": true,
+  "expectedCount": 35,
+  "validatedCount": 35,
+  "results": [
+    {
+      "id": "001-cold-loader-subagents_enable",
+      "scenario": "cold-loader",
+      "name": "subagents_enable",
+      "httpStatus": 200,
+      "json_ai_rules_version": "1.0.6",
+      "accepted": true
+    },
+    {
+      "id": "002-ordinary-subagents_enable",
+      "scenario": "ordinary",
+      "name": "subagents_enable",
+      "httpStatus": 200,
+      "json_ai_rules_version": "1.0.6",
+      "accepted": true
+    },
+    {
+      "id": "003-ordinary-subagent",
+      "scenario": "ordinary",
+      "name": "subagent",
+      "httpStatus": 200,
+      "json_ai_rules_version": "1.0.6",
+      "accepted": true
+    },
+    {
+      "id": "004-ordinary-contact_supervisor",
+      "scenario": "ordinary",
+      "name": "contact_supervisor",
+      "httpStatus": 200,
+      "json_ai_rules_version": "1.0.6",
+      "accepted": true
+    },
+    {
+      "id": "005-ordinary-subagent_supervisor",
+      "scenario": "ordinary",
+      "name": "subagent_supervisor",
+      "httpStatus": 200,
+      "json_ai_rules_version": "1.0.6",
+      "accepted": true
+    },
+    {
+      "id": "006-ordinary-bg_wait",
+      "scenario": "ordinary",
+      "name": "bg_wait",
+      "httpStatus": 200,
+      "json_ai_rules_version": "1.0.6",
+      "accepted": true
+    },
+    {
+      "id": "007-structured-workflows-subagent",
+      "scenario": "structured-workflows",
+      "name": "subagent",
+      "httpStatus": 200,
+      "json_ai_rules_version": "1.0.6",
+      "accepted": true
+    },
+    {
+      "id": "008-structured-workflows-contact_supervisor",
+      "scenario": "structured-workflows",
+      "name": "contact_supervisor",
+      "httpStatus": 200,
+      "json_ai_rules_version": "1.0.6",
+      "accepted": true
+    },
+    {
+      "id": "009-structured-workflows-subagent_supervisor",
+      "scenario": "structured-workflows",
+      "name": "subagent_supervisor",
+      "httpStatus": 200,
+      "json_ai_rules_version": "1.0.6",
+      "accepted": true
+    },
+    {
+      "id": "010-structured-workflows-bg_wait",
+      "scenario": "structured-workflows",
+      "name": "bg_wait",
+      "httpStatus": 200,
+      "json_ai_rules_version": "1.0.6",
+      "accepted": true
+    },
+    {
+      "id": "011-fanout-bg_wait",
+      "scenario": "fanout",
+      "name": "bg_wait",
+      "httpStatus": 200,
+      "json_ai_rules_version": "1.0.6",
+      "accepted": true
+    },
+    {
+      "id": "012-fanout-subagent",
+      "scenario": "fanout",
+      "name": "subagent",
+      "httpStatus": 200,
+      "json_ai_rules_version": "1.0.6",
+      "accepted": true
+    },
+    {
+      "id": "013-fanout-contact_supervisor",
+      "scenario": "fanout",
+      "name": "contact_supervisor",
+      "httpStatus": 200,
+      "json_ai_rules_version": "1.0.6",
+      "accepted": true
+    },
+    {
+      "id": "014-fanout-subagent_supervisor",
+      "scenario": "fanout",
+      "name": "subagent_supervisor",
+      "httpStatus": 200,
+      "json_ai_rules_version": "1.0.6",
+      "accepted": true
+    },
+    {
+      "id": "015-fanout-structured-workflows-bg_wait",
+      "scenario": "fanout-structured-workflows",
+      "name": "bg_wait",
+      "httpStatus": 200,
+      "json_ai_rules_version": "1.0.6",
+      "accepted": true
+    },
+    {
+      "id": "016-fanout-structured-workflows-subagent",
+      "scenario": "fanout-structured-workflows",
+      "name": "subagent",
+      "httpStatus": 200,
+      "json_ai_rules_version": "1.0.6",
+      "accepted": true
+    },
+    {
+      "id": "017-fanout-structured-workflows-contact_supervisor",
+      "scenario": "fanout-structured-workflows",
+      "name": "contact_supervisor",
+      "httpStatus": 200,
+      "json_ai_rules_version": "1.0.6",
+      "accepted": true
+    },
+    {
+      "id": "018-fanout-structured-workflows-subagent_supervisor",
+      "scenario": "fanout-structured-workflows",
+      "name": "subagent_supervisor",
+      "httpStatus": 200,
+      "json_ai_rules_version": "1.0.6",
+      "accepted": true
+    },
+    {
+      "id": "019-native-child-bg_wait",
+      "scenario": "native-child",
+      "name": "bg_wait",
+      "httpStatus": 200,
+      "json_ai_rules_version": "1.0.6",
+      "accepted": true
+    },
+    {
+      "id": "020-native-child-bash",
+      "scenario": "native-child",
+      "name": "bash",
+      "httpStatus": 200,
+      "json_ai_rules_version": "1.0.6",
+      "accepted": true
+    },
+    {
+      "id": "021-native-child-subagent_command",
+      "scenario": "native-child",
+      "name": "subagent_command",
+      "httpStatus": 200,
+      "json_ai_rules_version": "1.0.6",
+      "accepted": true
+    },
+    {
+      "id": "022-native-child-contact_supervisor",
+      "scenario": "native-child",
+      "name": "contact_supervisor",
+      "httpStatus": 200,
+      "json_ai_rules_version": "1.0.6",
+      "accepted": true
+    },
+    {
+      "id": "023-structured-output-undescribed-no-report-bg_wait",
+      "scenario": "structured-output-undescribed-no-report",
+      "name": "bg_wait",
+      "httpStatus": 200,
+      "json_ai_rules_version": "1.0.6",
+      "accepted": true
+    },
+    {
+      "id": "024-structured-output-undescribed-no-report-structured_output",
+      "scenario": "structured-output-undescribed-no-report",
+      "name": "structured_output",
+      "httpStatus": 200,
+      "json_ai_rules_version": "1.0.6",
+      "accepted": true
+    },
+    {
+      "id": "025-structured-output-undescribed-report-bg_wait",
+      "scenario": "structured-output-undescribed-report",
+      "name": "bg_wait",
+      "httpStatus": 200,
+      "json_ai_rules_version": "1.0.6",
+      "accepted": true
+    },
+    {
+      "id": "026-structured-output-undescribed-report-structured_output",
+      "scenario": "structured-output-undescribed-report",
+      "name": "structured_output",
+      "httpStatus": 200,
+      "json_ai_rules_version": "1.0.6",
+      "accepted": true
+    },
+    {
+      "id": "027-structured-output-described-no-report-bg_wait",
+      "scenario": "structured-output-described-no-report",
+      "name": "bg_wait",
+      "httpStatus": 200,
+      "json_ai_rules_version": "1.0.6",
+      "accepted": true
+    },
+    {
+      "id": "028-structured-output-described-no-report-structured_output",
+      "scenario": "structured-output-described-no-report",
+      "name": "structured_output",
+      "httpStatus": 200,
+      "json_ai_rules_version": "1.0.6",
+      "accepted": true
+    },
+    {
+      "id": "029-structured-output-described-report-bg_wait",
+      "scenario": "structured-output-described-report",
+      "name": "bg_wait",
+      "httpStatus": 200,
+      "json_ai_rules_version": "1.0.6",
+      "accepted": true
+    },
+    {
+      "id": "030-structured-output-described-report-structured_output",
+      "scenario": "structured-output-described-report",
+      "name": "structured_output",
+      "httpStatus": 200,
+      "json_ai_rules_version": "1.0.6",
+      "accepted": true
+    },
+    {
+      "id": "031-herdr-contact_supervisor",
+      "scenario": "herdr",
+      "name": "contact_supervisor",
+      "httpStatus": 200,
+      "json_ai_rules_version": "1.0.6",
+      "accepted": true
+    },
+    {
+      "id": "032-watchdog-review-watchdog_warn",
+      "scenario": "watchdog-review",
+      "name": "watchdog_warn",
+      "httpStatus": 200,
+      "json_ai_rules_version": "1.0.6",
+      "accepted": true
+    },
+    {
+      "id": "033-watchdog-review-watchdog_diff",
+      "scenario": "watchdog-review",
+      "name": "watchdog_diff",
+      "httpStatus": 200,
+      "json_ai_rules_version": "1.0.6",
+      "accepted": true
+    },
+    {
+      "id": "034-watchdog-review-watchdog_ask",
+      "scenario": "watchdog-review",
+      "name": "watchdog_ask",
+      "httpStatus": 200,
+      "json_ai_rules_version": "1.0.6",
+      "accepted": true
+    },
+    {
+      "id": "035-watchdog-permission-watchdog_permission_decision",
+      "scenario": "watchdog-permission",
+      "name": "watchdog_permission_decision",
+      "httpStatus": 200,
+      "json_ai_rules_version": "1.0.6",
+      "accepted": true
+    }
+  ]
+}

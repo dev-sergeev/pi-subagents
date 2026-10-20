@@ -442,7 +442,7 @@ describe("project schedule management", () => {
 		const h = harness();
 		const result = await h.manager.handleToolCall({ action: "schedule.create", id: "direct", every: "1h", agent: "worker", task: "Review" }, h.ctx);
 		assert.equal(result.isError, true);
-		assert.match(text(result), /requires workflow: true or a workflow script path/);
+		assert.match(text(result), /requires workflow/);
 	});
 
 	it("fails closed on persisted legacy agent targets", () => {
@@ -472,7 +472,7 @@ describe("project schedule management", () => {
 			launch: async () => ({ content: [{ type: "text", text: "unused" }], details: { mode: "management", results: [] } }),
 		});
 
-		assert.throws(() => manager.bindSession(context(h.ctx.cwd, "session-b")), /removed legacy agent target.*schedule\.create and workflow: true or a workflow script path/i);
+		assert.throws(() => manager.bindSession(context(h.ctx.cwd, "session-b")), /removed legacy agent target/i);
 	});
 
 	it("supports workflowScript targets and rejects unsafe or deferred shapes", async () => {

@@ -1,0 +1,30 @@
+{
+  "name": "bg_wait",
+  "description": "Wait for background work, then return. Ordinary async subagent runs already wake this session natively; use bg_wait only for provider, detached, or other background work without native notification, when a same-turn result is needed.\n{} — first active run or provider item to finish or need attention.\n{all:true} — all work active at call time.\n{id} — one run; a finished async run returns its result references.\n{id,nonBlocking:true} — subscribe to that run's wake and return now.\nTimeout or a user message ends the wait without error; work keeps running.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "description": "Run id or prefix."
+      },
+      "nonBlocking": {
+        "type": "boolean",
+        "description": "Subscribe to id's wake and return immediately; requires id, not with all."
+      },
+      "all": {
+        "type": "boolean",
+        "description": "Wait for all work active at call time."
+      },
+      "timeoutMs": {
+        "type": "integer",
+        "minimum": 1,
+        "description": "Max wait; default waitTool.defaultTimeoutMs, then 30 min."
+      },
+      "stopOnAttention": {
+        "type": "boolean",
+        "description": "false: keep waiting through idle or long-thinking attention."
+      }
+    }
+  }
+}

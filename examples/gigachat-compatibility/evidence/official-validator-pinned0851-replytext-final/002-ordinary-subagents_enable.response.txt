@@ -1,0 +1,1 @@
+{"status":200,"message":"Function is valid","json_ai_rules_version":"1.0.6","warnings":[{"description":"Value is null but should be object","schema_location":"#/properties/return_parameters"},{"description":"Value is null but should be array","schema_location":"#/properties/few_shot_examples"}]}

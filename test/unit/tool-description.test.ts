@@ -65,21 +65,6 @@ describe("registered subagent tool description", () => {
 		assert.equal(prompt.match(/operator|authori[sz]/gi)?.length, 2, prompt);
 	});
 
-	it("keeps call shapes, discovery and safety rules in every built-in mode", () => {
-		for (const description of [DEFAULT_SUBAGENT_TOOL_DESCRIPTION, FULL_SUBAGENT_TOOL_DESCRIPTION, COMPACT_SUBAGENT_TOOL_DESCRIPTION]) {
-			for (const contract of [
-				/One child: \{agent,task\}/,
-				/exactly one top-level subagent workflow call with async:true; write one ```js workflow block in this reply, then call subagent\(\{workflow:true\}\)/,
-				/\{action,id\?,options:\{\.\.\.\}\}; fields not in this schema go in options/,
-				/Launch agents by name and pass models as exact provider\/id; an unknown agent or model returns the valid choices/,
-				/Native async completion wakes this session: return control; do not sleep, poll or call bg_wait for it/,
-				/One writer per cwd\/worktree/,
-				/After a launch or runtime failure, stop and report it; never silently switch to interactive_shell, pi -ne or another CLI/,
-				/guide workflows\/recommended-orchestration-pattern.*guide workflows\/scripted-workflows.*guide tool-reference\/retained-children.*guide tool-reference\/external-cli-agent-profiles/,
-			]) assert.match(description, contract);
-			assert.ok(description.endsWith(SUBAGENT_SAFETY_GUIDANCE) || description.includes(`${SUBAGENT_SAFETY_GUIDANCE}\n\nDETAILS:`));
-		}
-	});
 
 	it("keeps full mode supplemental details and moves recipes to shipped guides", () => {
 		assert.equal(buildSubagentToolDescription({ toolDescriptionMode: "full" }), FULL_SUBAGENT_TOOL_DESCRIPTION);

@@ -45,10 +45,10 @@ it("emits bounded file-only snapshots, refreshes through management, and perform
 			};
 			// Invoke the catalog hooks directly; activation lifecycle is registered after them.
 			const refresh = (reason = "reload") => handlers.get("session_start").at(-2)({ reason }, ctx);
-			const emit = async (_previous = "base", selectedTools = activeTools) => {
-				const sections = {};
-				await handlers.get("before_agent_start").at(-2)({ systemPrompt: "base", systemPromptOptions: { selectedTools, sections } }, ctx);
-				return sections.advertised_subagents ?? "base";
+			const emit = async (_previous = "base", selectedTools = ["subagent"]) => {
+				activeTools.splice(0, activeTools.length, ...selectedTools);
+				const result = await handlers.get("before_agent_start").at(-2)({ systemPrompt: "base" }, ctx);
+				return result?.systemPrompt ?? "base";
 			};
 			const io = { statSync: 0, readdirSync: 0, readFileSync: 0 };
 			const originals = {};
@@ -77,7 +77,6 @@ it("emits bounded file-only snapshots, refreshes through management, and perform
 			let prompt = await noIo(() => emit());
 			assert.match(prompt, /<name>specialist<\/name>/);
 			assert.doesNotMatch(prompt, /hidden-/);
-			assert.match(prompt, /^The following file-defined subagents opted into discovery\..*Use subagent only when delegation is needed\.$/m);
 			assert.equal(await noIo(() => emit(prompt, ["read"])), "base");
 			const ceiling = registerSubagentCapabilityCeiling({ sessionId: "advertised-test", source: "test", ceiling: { allowedAgents: [] } });
 			assert.equal(await noIo(() => emit(prompt)), "base");
@@ -145,11 +144,11 @@ it("emits bounded file-only snapshots, refreshes through management, and perform
 			refresh();
 			await emit();
 			prompt = await noIo(async () => { let result; for (let i = 0; i < 20; i++) result = await emit(); return result; });
-			const catalog = prompt;
+			assert.ok(prompt.startsWith("base\n\n"), "catalog additions preserve the host's system prompt");
+			const catalog = prompt.slice("base\n\n".length);
 			assert.ok(Buffer.byteLength(catalog) <= 12288);
 			assert.doesNotMatch(catalog, /<name>[ab]/);
 			assert.match(catalog, /&lt;&gt;&amp;&quot;/);
-			assert.match(catalog, /not instructions to delegate/);
 			assert.match(catalog, /🦜界/);
 			assert.doesNotMatch(catalog, /�/);
 			assert.match(catalog, /<name>pkg\.opt-\d+<\/name>/);
@@ -167,66 +166,3 @@ it("emits bounded file-only snapshots, refreshes through management, and perform
 	}
 });
 
-it("delivers the catalog as a structured prompt section instead of replacing the system prompt", () => {
-	const home = fs.mkdtempSync(path.join(os.tmpdir(), "advertised-section-"));
-	const env = { ...process.env, PI_CODING_AGENT_DIR: home };
-	delete env[SUBAGENT_CHILD_ENV];
-	try {
-		const output = execFileSync(process.execPath, ["--experimental-strip-types", "--import", "./test/support/register-loader.mjs", "--input-type=module", "--eval", String.raw`
-			import assert from "node:assert/strict";
-			import fs from "node:fs";
-			import path from "node:path";
-			import register from "./src/extension/index.ts";
-			import { registerSubagentCapabilityCeiling } from "./src/runs/shared/capability-ceiling.ts";
-			const home = process.env.PI_CODING_AGENT_DIR;
-			const cwd = path.join(home, "project");
-			fs.mkdirSync(path.join(cwd, ".pi"), { recursive: true });
-			const dir = path.join(home, "agents");
-			fs.mkdirSync(dir);
-			fs.writeFileSync(path.join(dir, "specialist.md"), "---\nname: specialist\ndescription: Section specialist\nadvertise: true\n---\nAct narrowly.\n");
-			const handlers = new Map();
-			const pi = new Proxy({
-				events: { on() { return () => {}; }, emit() {} },
-				on(event, handler) { handlers.set(event, [...(handlers.get(event) ?? []), handler]); },
-				registerTool() {},
-				getActiveTools() { return ["subagent"]; },
-			}, { get(target, key) { return key in target ? target[key] : () => undefined; } });
-			register(pi);
-			const ctx = {
-				cwd, isIdle() { return false; }, hasUI: false, model: { provider: "test", id: "test" },
-				modelRegistry: { getAvailable() { return []; }, getAll() { return []; } },
-				sessionManager: { getSessionId() { return "section-test"; }, getSessionFile() { return undefined; }, getBranch() { return []; } },
-			};
-			handlers.get("session_start").at(-2)({ reason: "startup" }, ctx);
-			const before = handlers.get("before_agent_start").at(-2);
-			const emit = async (selectedTools, sections = {}) => {
-				const event = { systemPrompt: "base", systemPromptOptions: { selectedTools, sections } };
-				return { result: await before(event, ctx), sections: event.systemPromptOptions.sections };
-			};
-
-			let turn = await emit(["subagent"]);
-			assert.equal(turn.result, undefined, "the sections path must not return systemPrompt");
-			assert.match(turn.sections.advertised_subagents, /<name>specialist<\/name>/);
-			assert.match(turn.sections.advertised_subagents, /Section specialist/);
-			assert.doesNotMatch(turn.sections.advertised_subagents, /advertised_subagents/, "Pi adds the tag from the section key");
-
-			turn = await emit(["read"]);
-			assert.equal(turn.result, undefined);
-			assert.equal("advertised_subagents" in turn.sections, false, "no section when subagent is not selected");
-
-			const ceiling = registerSubagentCapabilityCeiling({ sessionId: "section-test", source: "test", ceiling: { allowedAgents: [] } });
-			turn = await emit(["subagent"]);
-			assert.equal(turn.result, undefined);
-			assert.equal("advertised_subagents" in turn.sections, false, "no section when the ceiling excludes every agent");
-			ceiling.dispose();
-
-			turn = await emit(["subagent"], { other: "kept" });
-			assert.equal(turn.sections.other, "kept", "other sections are untouched");
-			assert.match(turn.sections.advertised_subagents, /<name>specialist<\/name>/);
-			process.stdout.write("section delivery passed");
-		`], { cwd: root, env, encoding: "utf8", timeout: 60_000 });
-		assert.match(output, /section delivery passed/);
-	} finally {
-		fs.rmSync(home, { recursive: true, force: true });
-	}
-});

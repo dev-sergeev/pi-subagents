@@ -4,7 +4,7 @@ This file is a detailed reference loaded from `skills/pi-subagents/SKILL.md`.
 
 ## Capability ceilings
 
-Parent extensions may register a session-scoped, out-of-band ceiling through `pi-subagents/capability-ceiling`. Child tools and eligible canonical agent names are intersected with every active registration and inherited snapshot; `denyExtensions` removes ambient/provider extension loading while retaining package protocol runtime. `{ action: "list" }` marks non-allowlisted agents as restricted, and launch rejects them before spawn. Do not add a model-visible ceiling field or rely on unrestricted role selection for enforcement. Restricted schedules are rejected until their ceiling can be persisted safely.
+Parent extensions may register a session-scoped, out-of-band ceiling through `@dev-sergeev/pi-subagents/capability-ceiling`. Child tools and eligible canonical agent names are intersected with every active registration and inherited snapshot; `denyExtensions` removes ambient/provider extension loading while retaining package protocol runtime. `{ action: "list" }` marks non-allowlisted agents as restricted, and launch rejects them before spawn. Do not add a model-visible ceiling field or rely on unrestricted role selection for enforcement. Restricted schedules are rejected until their ceiling can be persisted safely.
 
 ## When to Use
 
@@ -25,7 +25,7 @@ they do not authorize a launch.
 
 ## Tool vs Slash Commands
 
-Agents use the `subagent(...)` tool for execution, management, status, and control. Direct `{ agent, task }` execution is enough for one bounded child task; use a workflow script (one ```` ```js workflow ```` block in the reply plus `subagent({ workflow: true })`) when the parent needs JavaScript control flow or data-dependent branching, keyed, parallel, sequential, retry, retained-resume, aggregate, or explicit staged-lane behavior (`runs.lanes`). Humans often use the slash-command layer instead:
+Agents use the `subagent(...)` tool for execution, management, status, and control. Direct `{ agent, task }` execution is enough for one bounded child task; use a workflow script (one ```` ```js workflow ```` block in the reply plus `subagent({ workflow: "true" })`) when the parent needs JavaScript control flow or data-dependent branching, keyed, parallel, sequential, retry, retained-resume, aggregate, or explicit staged-lane behavior (`runs.lanes`). Humans often use the slash-command layer instead:
 
 - `/run` — launch a single agent
 - `subagent({ workflow: ... })` — the workflow-script surface for sequence, parallelism, branching, retries, and aggregation; with `disabledFeatures: ["workflow-scripts"]`, top-level `chain` and `tasks` replace it (see [configuration](../../../docs/configuration.md#chain-and-tasks-without-workflow-scripts))
@@ -92,7 +92,7 @@ return results.map(result => result.output);
 ```
 
 ```typescript
-subagent({ workflow: true, options: { context: "fresh" } })
+subagent({ workflow: "true", options: { context: "fresh" } })
 ```
 
 ### Review-loop technique
@@ -113,7 +113,7 @@ Use this when the operator requests delegated context gathering. Launch `scout` 
 
 ### Parallel cleanup technique
 
-Use this after implementation when the user or applicable instructions request delegated cleanup review. Launch two fresh-context `reviewer` tasks with `output: false` and `progress: false`: one deslop pass and one verbosity pass. If the `deslop` or `verbosity-cleaner` skills are available, pass the relevant skill to that reviewer; otherwise inline the criteria. Both reviewers are review-only and should flag concrete issues with severity, file/line references, and smallest safe fixes. Phrase the constraint as “Do not modify project/source files; returning findings through the configured output artifact is allowed” when you use `output` or `outputMode: "file-only"`. The parent decides what to apply and asks before making changes unless cleanup was already authorized.
+Use this after implementation when the user or applicable instructions request delegated cleanup review. Launch two fresh-context `reviewer` tasks with `output: "false"` and `progress: false`: one deslop pass and one verbosity pass. If the `deslop` or `verbosity-cleaner` skills are available, pass the relevant skill to that reviewer; otherwise inline the criteria. Both reviewers are review-only and should flag concrete issues with severity, file/line references, and smallest safe fixes. Phrase the constraint as “Do not modify project/source files; returning findings through the configured output artifact is allowed” when you use `output` or `outputMode: "file-only"`. The parent decides what to apply and asks before making changes unless cleanup was already authorized.
 
 ### Staged fix orchestration technique
 
@@ -166,7 +166,7 @@ return { worker: worker.output, validations: validations.map(v => v.output) };
 ```
 
 ```typescript
-subagent({ workflow: true, async: true, options: { context: "fresh" } })
+subagent({ workflow: "true", async: true, options: { context: "fresh" } })
 ```
 
 ## Builtin Agents

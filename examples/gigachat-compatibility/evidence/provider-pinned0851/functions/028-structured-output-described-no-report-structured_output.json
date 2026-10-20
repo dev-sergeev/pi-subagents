@@ -1,0 +1,26 @@
+{
+  "name": "structured_output",
+  "description": "Submit the required final structured output for this subagent step. This terminates the step.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "value": {
+        "type": "object",
+        "description": "The compatibility fixture's verified result.",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "required": [
+      "value"
+    ],
+    "additionalProperties": false
+  }
+}

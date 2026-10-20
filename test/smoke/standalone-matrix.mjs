@@ -7,10 +7,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-if (process.platform !== "linux" || process.arch !== "x64") {
-	console.log(`SKIP standalone matrix: requires Linux x64/bubblewrap; ${process.platform}/${process.arch} not validated.`);
-	process.exit(0);
-}
+assert.equal(process.platform, "linux", "standalone matrix requires Linux x64/bubblewrap; other platforms are not validated");
+assert.equal(process.arch, "x64", "standalone matrix requires Linux x64/bubblewrap; other architectures are not validated");
 
 const source = fileURLToPath(new URL("../../", import.meta.url));
 const release = JSON.parse(fs.readFileSync(new URL("standalone-release.json", import.meta.url), "utf8"));

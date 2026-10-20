@@ -5,7 +5,6 @@ import * as path from "node:path";
 import { describe, it } from "node:test";
 import type { AssistantMessage, Message, Model, ToolResultMessage } from "@earendil-works/pi-ai";
 import { convertResponsesMessages } from "@earendil-works/pi-ai/api/openai-responses-shared";
-import { normalizeContext } from "@earendil-works/pi-ai/utils/transcript";
 import { createEventBus } from "../support/helpers.ts";
 import { RUNTIME_EXTENSION_ACK_EVENT } from "../../src/runs/shared/runtime-acknowledged-extensions.ts";
 import { clearStructuredOutputCaptures } from "../../src/runs/shared/structured-output.ts";
@@ -49,7 +48,7 @@ it("does not skip drain for in-process child sessions when hasUI is true", async
 			children: [{ agent: "reviewer", index: 0, status: "detached", updatedAt: 1 }],
 		}]]),
 	} as SubagentState;
-	const ctx = { hasUI: true, sessionManager: { getSessionFile: () => sessionId } };
+	const ctx = { hasUI: true, sessionManager: { getSessionFile: () => sessionId, getBranch: () => [] } };
 	const emit = async (name: string, event: unknown) => { for (const fn of handlers.get(name) ?? []) await fn(event, ctx); };
 	registerSubagentPromptRuntime({
 		on: (name: string, fn: Function) => handlers.set(name, [...(handlers.get(name) ?? []), fn]),
@@ -81,7 +80,7 @@ it("reads a late-installed owner barrier for each final drain and balances the h
 		}]]),
 	} as SubagentState;
 	const config = childConfig({ runtimeState, holdFinalDrain: (value) => { held.push(value); } });
-	const ctx = { hasUI: true, sessionManager: { getSessionFile: () => sessionId } };
+	const ctx = { hasUI: true, sessionManager: { getSessionFile: () => sessionId, getBranch: () => [] } };
 	const emit = async (name: string) => { for (const fn of handlers.get(name) ?? []) await fn({}, ctx); };
 	registerSubagentPromptRuntime({
 		on: (name: string, fn: Function) => handlers.set(name, [...(handlers.get(name) ?? []), fn]),
@@ -136,7 +135,7 @@ it("registered child bg_wait discovers nested personas and agent_end drains the 
 	const events = createEventBus();
 	const tools = new Map<string, { execute: Function }>();
 	const held: boolean[] = [];
-	const ctx = { hasUI: false, sessionManager: { getSessionFile: () => sessionId } };
+	const ctx = { hasUI: false, sessionManager: { getSessionFile: () => sessionId, getBranch: () => [] } };
 	const emit = async (event: string) => { for (const fn of handlers.get(event) ?? []) await fn({}, ctx); };
 	const writeStatus = (state: "running" | "complete") => {
 		fs.mkdirSync(asyncDir, { recursive: true });
@@ -195,7 +194,7 @@ it("fanout child bg_wait yields to a descendant's supervisor request while the a
 	const tools = new Map<string, { execute: Function }>();
 	const ctx = {
 		cwd: process.cwd(), hasUI: false, isIdle: () => false,
-		sessionManager: { getSessionFile: () => sessionFile, getSessionId: () => ownerSessionId, getEntries: () => [] },
+		sessionManager: { getSessionFile: () => sessionFile, getSessionId: () => ownerSessionId, getEntries: () => [], getBranch: () => [] },
 	};
 	// SAFETY: this fixture supplies the registration/event APIs both child hooks use; other calls are inert.
 	const pi = new Proxy({
@@ -477,14 +476,12 @@ describe("subagent prompt runtime", () => {
 			const terminalState = { captured: false };
 			let execute: ((_id: string, params: { value: unknown }) => Promise<{ terminate?: boolean }>) | undefined;
 			let parameters: unknown;
-			let exposure: unknown;
 
 			registerSubagentPromptRuntime({
-				registerTool(tool: { name: string; parameters: unknown; exposure?: string; execute: (_id: string, params: { value: unknown }) => Promise<{ terminate?: boolean }> }) {
+				registerTool(tool: { name: string; parameters: unknown; execute: (_id: string, params: { value: unknown }) => Promise<{ terminate?: boolean }> }) {
 					if (tool.name === "structured_output") {
 						execute = tool.execute;
 						parameters = tool.parameters;
-						exposure = tool.exposure;
 					}
 				},
 				on() {},
@@ -493,10 +490,9 @@ describe("subagent prompt runtime", () => {
 			}));
 
 			assert.ok(execute, "structured_output tool should be registered");
-			assert.equal(exposure, "model-only", "a nested structured_output call cannot terminate the step");
 			assert.deepEqual(parameters, {
 				type: "object",
-				properties: { value: { type: "object", required: ["ok"], properties: { ok: { type: "boolean" } } } },
+				properties: { value: { type: "object", description: "The final structured result for this subagent step, matching the requested output schema.", required: ["ok"], properties: { ok: { type: "boolean" } } } },
 				required: ["value"],
 				additionalProperties: false,
 			});
@@ -1148,7 +1144,7 @@ describe("subagent prompt runtime", () => {
 		});
 	}
 
-	it("filters parent-only context out of the prompt inputs in place without replacing the prompt", async () => {
+	it("returns filtered prompt text and keeps optional prompt metadata consistent", async () => {
 		let beforeAgentStart: ((event: unknown) => Promise<unknown>) | undefined;
 		registerSubagentPromptRuntime({
 			on(event: string, handler: (payload: unknown) => Promise<unknown>) {
@@ -1161,14 +1157,37 @@ describe("subagent prompt runtime", () => {
 			appendSystemPrompt: `Extra.\n\n${CHILD_SUBAGENT_BOUNDARY_INSTRUCTIONS}`,
 			contextFiles: [{ path: path.join(getAgentDir(), "AGENTS.md"), content: "Global" }, { path: "/repo/AGENTS.md", content: "Repo" }],
 			skills: [{ name: "pi-subagents" }, { name: "safe-bash" }],
-			sections: {},
 		};
 
-		assert.equal(await beforeAgentStart?.({ systemPrompt: "rendered", systemPromptOptions: options }), undefined);
+		const systemPrompt = `Role.\n\n<skill name="pi-subagents">\nOrchestrate.\n</skill>\n\n${CHILD_FANOUT_BOUNDARY_INSTRUCTIONS}`;
+		assert.deepEqual(await beforeAgentStart?.({ systemPrompt, systemPromptOptions: options }), { systemPrompt: "Role." });
 		assert.deepEqual(options.contextFiles.map((file) => file.content), ["Repo"]);
 		assert.deepEqual(options.skills.map((skill) => skill.name), ["safe-bash"]);
 		assert.equal(options.customPrompt, "Role.");
 		assert.equal(options.appendSystemPrompt, "Extra.");
+	});
+
+	it("filters a native prompt whose optional contextFiles, skills and selectedTools are absent", async () => {
+		let beforeAgentStart: ((event: unknown) => Promise<unknown>) | undefined;
+		registerSubagentPromptRuntime({
+			on(event: string, handler: (payload: unknown) => Promise<unknown>) {
+				if (event === "before_agent_start") beforeAgentStart = handler;
+			},
+		} as never, childConfig({ inheritProjectContext: true, inheritGlobalContext: false, inheritSkills: true }));
+		assert.equal(await beforeAgentStart?.({ systemPrompt: "Role.", systemPromptOptions: { cwd: "/repo" } }), undefined);
+	});
+
+	it("keeps the native working-directory suffix when inherited skills are disabled", () => {
+		const prompt = "Role.\n\nThe following skills provide specialized instructions for specific tasks.\n<available_skills>\n<skill><name>safe-bash</name></skill>\n</available_skills>\nCurrent working directory: /repo";
+		assert.equal(stripInheritedSkills(prompt), "Role.\nCurrent working directory: /repo");
+	});
+
+	it("appends the actual child boundary to fork prompts too", () => {
+		let boundary: ((event: { systemPrompt: string }) => { systemPrompt: string } | undefined) | undefined;
+		registerSubagentPromptBoundary({
+			on: (_event: string, handler: NonNullable<typeof boundary>) => { boundary = handler; },
+		} as never, childConfig({ forkCacheKey: "pi-fork:parent", inheritProjectContext: true }));
+		assert.deepEqual(boundary?.({ systemPrompt: "Fork role." }), { systemPrompt: `Fork role.\n\n${CHILD_SUBAGENT_BOUNDARY_INSTRUCTIONS}` });
 	});
 
 	it("appends the child boundary once to the complete prompt, after another extension's own prompt", () => {
@@ -1233,7 +1252,7 @@ describe("subagent prompt runtime", () => {
 		}
 
 		function assertWire(messages: Message[], callId: string, itemId: string | undefined): void {
-			const wire = convertResponsesMessages(model, normalizeContext({ messages }), new Set(["openai", "openai-codex", "opencode"]));
+			const wire = convertResponsesMessages(model, { messages }, new Set(["openai", "openai-codex", "opencode"]));
 			assert.deepEqual(wire.filter((item) => item.type === "function_call" || item.type === "function_call_output"), [
 				{ type: "function_call", id: itemId, call_id: callId, name: "read", arguments: '{"path":"README.md"}' },
 				{ type: "function_call_output", call_id: callId, output: "file" },

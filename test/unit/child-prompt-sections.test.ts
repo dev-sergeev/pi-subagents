@@ -3,7 +3,8 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { after, before, describe, it } from "node:test";
-import { fauxAssistantMessage, fauxProvider, fauxToolCall, getSystemMessageText, type FauxResponseFactory } from "@earendil-works/pi-ai";
+import { fauxAssistantMessage, fauxProvider, fauxToolCall } from "@earendil-works/pi-ai";
+import type { AssistantMessage, FauxResponseFactory } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { buildInProcessChildLaunch } from "../../src/runs/shared/child-launch.ts";
 import { createDefaultChildSessionFactory } from "../../src/runs/shared/child-session.ts";
@@ -55,8 +56,8 @@ describe("child provider system prompt", () => {
 		setFixture(run.fixture ?? {});
 		const faux = fauxProvider({ provider: "probe", models: [{ id: "local" }], tokensPerSecond: 100_000 });
 		const requests: string[] = [];
-		const reply = (message: ReturnType<typeof fauxAssistantMessage>): FauxResponseFactory => (context) => {
-			requests.push(context.messages.filter((entry) => entry.role === "system").map((entry) => getSystemMessageText(entry as never)).join("\n\n"));
+		const reply = (message: AssistantMessage): FauxResponseFactory => (context) => {
+			requests.push(context.systemPrompt ?? "");
 			return message;
 		};
 		faux.setResponses((run.prompts ?? ["Task"]).flatMap(() => run.toolTurn
@@ -82,7 +83,7 @@ describe("child provider system prompt", () => {
 		return requests;
 	}
 
-	it("sends sections that later extensions add to the provider, after the filtered prompt a bridge captured", async () => {
+	it("sends later extensions' chained prompts after the filtered prompt a bridge captured", async () => {
 		const captured: string[] = [];
 		const requests = await providerPrompts({
 			flags: { inheritProjectContext: true, inheritGlobalContext: false, inheritSkills: true },
@@ -90,7 +91,7 @@ describe("child provider system prompt", () => {
 			toolTurn: true,
 			hooks: [
 				(pi) => pi.on("before_agent_start", (event) => { captured.push(event.systemPrompt); }),
-				(pi) => pi.on("before_agent_start", (event) => { event.systemPromptOptions.sections.probe = "PROBE-SECTION-MARKER"; }),
+				(pi) => pi.on("before_agent_start", (event) => ({ systemPrompt: `${event.systemPrompt}\n\nPROBE-PROMPT-MARKER` })),
 			],
 		});
 
@@ -98,7 +99,7 @@ describe("child provider system prompt", () => {
 		assert.equal(new Set(requests).size, 1, "the prompt is identical across requests");
 		for (const [index, request] of requests.entries()) {
 			const capture = captured[index < 2 ? 0 : 1]!;
-			assert.match(request, /<probe>\nPROBE-SECTION-MARKER\n<\/probe>/);
+			assert.match(request, /PROBE-PROMPT-MARKER/);
 			assert.ok(request.startsWith(capture), "the bridge-captured prompt is the head of the provider prompt");
 			assert.doesNotMatch(capture, /GLOBAL-CONTEXT-MARKER/);
 			assert.doesNotMatch(request, /GLOBAL-CONTEXT-MARKER/);

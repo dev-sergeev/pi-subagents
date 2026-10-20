@@ -192,7 +192,7 @@ test("validateStructuredOutputValue finds typebox/compile through the running Pi
 	try {
 		const extension = path.join(root, "extension");
 		fs.cpSync(path.join(projectRoot, "src"), path.join(extension, "src"), { recursive: true });
-		fs.writeFileSync(path.join(extension, "package.json"), JSON.stringify({ name: "pi-subagents", type: "module" }));
+		fs.writeFileSync(path.join(extension, "package.json"), JSON.stringify({ type: "module" }));
 		const packageJson = JSON.parse(fs.readFileSync(path.join(projectRoot, "package.json"), "utf-8")) as { dependencies: Record<string, string> };
 		for (const dependency of Object.keys(packageJson.dependencies)) {
 			const target = path.join(extension, "node_modules", dependency);

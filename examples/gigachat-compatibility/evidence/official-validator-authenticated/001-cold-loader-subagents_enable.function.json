@@ -1,0 +1,8 @@
+{
+  "name": "subagents_enable",
+  "description": "Enable pi-subagents delegation and management tools without launching work. Call when delegation is authorized by the current request or applicable user/project instructions, or when managing existing runs. Direct execution is the default; complexity alone never authorizes delegation. Full tools are available on the next model request.",
+  "parameters": {
+    "type": "object",
+    "properties": {}
+  }
+}

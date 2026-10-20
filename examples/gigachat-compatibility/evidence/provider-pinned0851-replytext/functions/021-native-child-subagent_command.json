@@ -1,0 +1,30 @@
+{
+  "name": "subagent_command",
+  "description": "Inspect or cancel bash commands owned by this child. Cancellation stops only the selected command, not the agent. Check terminal state before finishing.",
+  "parameters": {
+    "type": "object",
+    "required": [
+      "action"
+    ],
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": [
+          "status",
+          "cancel"
+        ],
+        "description": "Inspect retained bash command state or request cancellation of one exact command without stopping the child agent."
+      },
+      "toolCallId": {
+        "type": "string",
+        "description": "Exact retained bash tool-call ID. Required for cancel; omit for status to list this child's retained commands."
+      },
+      "waitMs": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 30000,
+        "description": "Wait up to this many milliseconds for the selected command to settle before returning its state; defaults to zero and does not stop the command."
+      }
+    }
+  }
+}

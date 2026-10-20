@@ -36,7 +36,7 @@ and their resolved `tools` allow `subagent`.
 | Management, status, steering, authoring, or inspection | `action` |
 
 To launch a workflow script, write it as one ```` ```js workflow ```` fenced
-block in your reply, then call `subagent({ workflow: true, ... })` in the same
+block in your reply, then call `subagent({ workflow: "true", ... })` in the same
 reply. Use `workflow: "./path/to/script.js"` for a script file and
 `workflow: "<name>"` for a named resource.
 

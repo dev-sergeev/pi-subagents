@@ -86,7 +86,7 @@ describe("subagent extension child mode", () => {
 			if (!registeredTool) throw new Error("tool not registered");
 			const theme = { fg(_name, text) { return text; }, bold(text) { return text; } };
 			const rows = [
-				registeredTool.renderCall({ workflow: true, async: true }, theme).text,
+				registeredTool.renderCall({ workflow: "true", async: true }, theme).text,
 				registeredTool.renderCall({ workflow: "./ci/sweep.js" }, theme).text,
 				registeredTool.renderCall({ workflow: "review" }, theme).text,
 			];
@@ -117,8 +117,13 @@ describe("subagent extension child mode", () => {
 				modelRegistry: { getAvailable() { return []; } },
 			};
 			for (const tool of [tools.parent, tools.fanout]) {
-				await assert.rejects(tool.execute("model-script", { workflowScript: "return 1" }, new AbortController().signal, undefined, ctx), /workflowScript was removed.*subagent\(\{ workflow: true \}\)/);
+				await assert.rejects(tool.execute("model-script", { workflowScript: "return 1" }, new AbortController().signal, undefined, ctx), /workflowScript was removed/);
 				await assert.rejects(tool.execute("model-path", { workflowScriptPath: "ci/sweep.js" }, new AbortController().signal, undefined, ctx), /workflowScriptPath was removed.*workflow: "\.\/path\/to\/script\.js"/);
+				for (const field of ["workflow", "output"]) {
+					for (const value of [true, false, 42, null, {}]) {
+						await assert.rejects(tool.execute("invalid-model", { [field]: value }, new AbortController().signal, undefined, ctx), /must be a string/);
+					}
+				}
 			}
 			assert.deepEqual(expanded, [], "rejected calls must not reach parent execution");
 		`;
@@ -413,8 +418,13 @@ describe("subagent extension child mode", () => {
 				let slashRenderer;
 				const fakePi = new Proxy({
 					events,
+					activeTools: [],
+					registeredTools: [],
+					getAllTools() { return this.registeredTools; },
+					getActiveTools() { return this.activeTools; },
+					setActiveTools(tools) { this.activeTools = tools; },
 					on(channel, handler) { handlers.set(channel, [...(handlers.get(channel) ?? []), handler]); },
-					registerTool() {}, registerCommand() {}, registerShortcut() {}, sendMessage() {}, getSessionName() {},
+					registerTool(tool) { this.registeredTools.push(tool); }, registerCommand() {}, registerShortcut() {}, sendMessage() {}, getSessionName() {},
 					registerMessageRenderer(type, renderer) { if (type === "subagent-slash-result") slashRenderer = renderer; },
 				}, { get(target, prop) { return prop in target ? target[prop] : () => undefined; } });
 				const lightTheme = {
@@ -436,7 +446,7 @@ describe("subagent extension child mode", () => {
 				};
 				const ctx = {
 					cwd: process.cwd(), isIdle() { return false; }, hasUI: true, ui,
-					sessionManager: { getSessionId() { return "slash-theme-session"; }, getSessionFile() { return null; }, getEntries() { return []; } },
+					sessionManager: { getSessionId() { return "slash-theme-session"; }, getSessionFile() { return null; }, getEntries() { return []; }, getBranch() { return this.getEntries(); } },
 					modelRegistry: { getAvailable() { return []; } },
 				};
 				registerSubagentExtension(fakePi);
@@ -542,8 +552,13 @@ describe("subagent extension child mode", () => {
 			let bgWaitTool;
 			const fakePi = new Proxy({
 				events,
+				activeTools: [],
+				registeredTools: [],
+				getAllTools() { return this.registeredTools; },
+				getActiveTools() { return this.activeTools; },
+				setActiveTools(tools) { this.activeTools = tools; },
 				on(channel, handler) { handlers.set(channel, [...(handlers.get(channel) ?? []), handler]); },
-				registerTool(tool) { if (tool.name === "bg_wait") bgWaitTool = tool; },
+				registerTool(tool) { this.registeredTools.push(tool); if (tool.name === "bg_wait") bgWaitTool = tool; },
 				registerCommand() {}, registerShortcut() {}, registerMessageRenderer() {}, sendMessage() {}, getSessionName() {},
 			}, { get(target, prop) { return prop in target ? target[prop] : () => undefined; } });
 
@@ -560,6 +575,7 @@ describe("subagent extension child mode", () => {
 					getSessionId() { return ownerSessionId; },
 					getSessionFile() { return runtimeSessionId; },
 					getEntries() { return []; },
+					getBranch() { return this.getEntries(); },
 				},
 				modelRegistry: { getAvailable() { return []; } },
 			};
@@ -616,15 +632,20 @@ describe("subagent extension child mode", () => {
 				const events = { on(channel, handler) { eventHandlers.set(channel, handler); return () => {}; }, emit() {} };
 				const fakePi = new Proxy({
 					events,
+					activeTools: [],
+					registeredTools: [],
+					getAllTools() { return this.registeredTools; },
+					getActiveTools() { return this.activeTools; },
+					setActiveTools(tools) { this.activeTools = tools; },
 					on(channel, handler) { handlers.set(channel, [...(handlers.get(channel) ?? []), handler]); },
-					registerTool() {}, registerCommand() {}, registerShortcut() {}, registerMessageRenderer() {},
+					registerTool(tool) { this.registeredTools.push(tool); }, registerCommand() {}, registerShortcut() {}, registerMessageRenderer() {},
 					sendMessage() {}, getSessionName() { return undefined; },
 				}, { get(target, prop) { return prop in target ? target[prop] : () => undefined; } });
 				const widgets = [];
 				const ctx = {
 					cwd: process.cwd(), isIdle() { return false; }, hasUI: true,
 					ui: { setWidget(key, value) { widgets.push({ key, value }); }, requestRender() {}, theme: { fg(_name, text) { return text; }, bg(_name, text) { return text; }, bold(text) { return text; } } },
-					sessionManager: { getSessionId() { return "session-widget"; }, getSessionFile() { return null; }, getEntries() { return []; } },
+					sessionManager: { getSessionId() { return "session-widget"; }, getSessionFile() { return null; }, getEntries() { return []; }, getBranch() { return this.getEntries(); } },
 					modelRegistry: { getAvailable() { return []; } },
 				};
 				registerSubagentExtension(fakePi);
@@ -657,8 +678,13 @@ describe("subagent extension child mode", () => {
 				const events = { on(channel, handler) { eventHandlers.set(channel, handler); return () => {}; }, emit() {} };
 				const fakePi = new Proxy({
 					events,
+					activeTools: [],
+					registeredTools: [],
+					getAllTools() { return this.registeredTools; },
+					getActiveTools() { return this.activeTools; },
+					setActiveTools(tools) { this.activeTools = tools; },
 					on(channel, handler) { handlers.set(channel, [...(handlers.get(channel) ?? []), handler]); },
-					registerTool() {}, registerCommand() {}, registerShortcut() {}, registerMessageRenderer() {},
+					registerTool(tool) { this.registeredTools.push(tool); }, registerCommand() {}, registerShortcut() {}, registerMessageRenderer() {},
 					sendMessage() {}, getSessionName() { return undefined; },
 				}, { get(target, prop) { return prop in target ? target[prop] : () => undefined; } });
 				let widget;
@@ -669,7 +695,7 @@ describe("subagent extension child mode", () => {
 						requestRender() {}, getToolsExpanded() { return false; },
 						theme: { fg(_name, text) { return text; }, bg(_name, text) { return text; }, bold(text) { return text; } },
 					},
-					sessionManager: { getSessionId() { return "session-widget"; }, getSessionFile() { return null; }, getEntries() { return []; } },
+					sessionManager: { getSessionId() { return "session-widget"; }, getSessionFile() { return null; }, getEntries() { return []; }, getBranch() { return this.getEntries(); } },
 					modelRegistry: { getAvailable() { return []; } },
 				};
 				registerSubagentExtension(fakePi);
@@ -704,15 +730,20 @@ describe("subagent extension child mode", () => {
 				const events = { on(channel, handler) { eventHandlers.set(channel, handler); return () => {}; }, emit() {} };
 				const fakePi = new Proxy({
 					events,
+					activeTools: [],
+					registeredTools: [],
+					getAllTools() { return this.registeredTools; },
+					getActiveTools() { return this.activeTools; },
+					setActiveTools(tools) { this.activeTools = tools; },
 					on(channel, handler) { handlers.set(channel, [...(handlers.get(channel) ?? []), handler]); },
-					registerTool() {}, registerCommand() {}, registerShortcut() {}, registerMessageRenderer() {},
+					registerTool(tool) { this.registeredTools.push(tool); }, registerCommand() {}, registerShortcut() {}, registerMessageRenderer() {},
 					sendMessage() {}, getSessionName() { return undefined; },
 				}, { get(target, prop) { return prop in target ? target[prop] : () => undefined; } });
 				const widgets = [];
 				const ctx = {
 					cwd: process.cwd(), isIdle() { return false; }, hasUI: true,
 					ui: { setWidget(key, value) { widgets.push({ key, value }); }, requestRender() {}, theme: { fg(_name, text) { return text; }, bg(_name, text) { return text; }, bold(text) { return text; } } },
-					sessionManager: { getSessionId() { return "session-widget"; }, getSessionFile() { return null; }, getEntries() { return []; } },
+					sessionManager: { getSessionId() { return "session-widget"; }, getSessionFile() { return null; }, getEntries() { return []; }, getBranch() { return this.getEntries(); } },
 					modelRegistry: { getAvailable() { return []; } },
 				};
 				registerSubagentExtension(fakePi);
@@ -748,9 +779,14 @@ describe("subagent extension child mode", () => {
 			process.env.HERDR_PANE_ID = "w1:p1";
 			const fakePi = new Proxy({
 				events,
+				activeTools: [],
+				registeredTools: [],
+				getAllTools() { return this.registeredTools; },
+				getActiveTools() { return this.activeTools; },
+				setActiveTools(tools) { this.activeTools = tools; },
 				on(channel, handler) { handlers.set(channel, [...(handlers.get(channel) ?? []), handler]); },
 				exec(command, args) { herdrCommands.push({ command, args }); return Promise.resolve({ code: 0, stdout: "", stderr: "", killed: false }); },
-				registerTool() {}, registerCommand() {}, registerShortcut() {}, registerMessageRenderer() {},
+				registerTool(tool) { this.registeredTools.push(tool); }, registerCommand() {}, registerShortcut() {}, registerMessageRenderer() {},
 				sendMessage() {}, getSessionName() { return undefined; },
 			}, { get(target, prop) { return prop in target ? target[prop] : () => undefined; } });
 			const runId = "management-refresh-" + crypto.randomUUID();
@@ -758,7 +794,7 @@ describe("subagent extension child mode", () => {
 			const ctx = {
 				cwd: process.cwd(), isIdle() { return false; }, hasUI: true,
 				ui: { setWidget(key, value) { widgets.push({ key, value }); }, requestRender() {}, theme: { fg(_name, text) { return text; }, bg(_name, text) { return text; }, bold(text) { return text; } } },
-				sessionManager: { getSessionId() { return sessionId; }, getSessionFile() { return null; }, getEntries() { return []; } },
+				sessionManager: { getSessionId() { return sessionId; }, getSessionFile() { return null; }, getEntries() { return []; }, getBranch() { return this.getEntries(); } },
 				modelRegistry: { getAvailable() { return []; } },
 			};
 			const asyncDir = path.join(DIRS.async, runId);
@@ -805,8 +841,13 @@ describe("subagent extension child mode", () => {
 			};
 			const pi = new Proxy({
 				events,
+				activeTools: [],
+				registeredTools: [],
+				getAllTools() { return this.registeredTools; },
+				getActiveTools() { return this.activeTools; },
+				setActiveTools(tools) { this.activeTools = tools; },
 				on(channel, handler) { handlers.set(channel, [...(handlers.get(channel) ?? []), handler]); },
-				registerTool() {}, registerCommand() {}, registerShortcut() {}, registerMessageRenderer() {},
+				registerTool(tool) { this.registeredTools.push(tool); }, registerCommand() {}, registerShortcut() {}, registerMessageRenderer() {},
 				sendMessage(message) { if (message.customType === "subagent-notify") sent.push(message); }, getSessionName() { return undefined; },
 			}, { get(target, prop) { return prop in target ? target[prop] : () => undefined; } });
 			const sent = [];
@@ -825,7 +866,7 @@ describe("subagent extension child mode", () => {
 			const ctx = {
 				cwd: process.cwd(), isIdle() { return false; }, hasUI: false,
 				ui: { setWidget() {}, requestRender() {}, theme: { fg(_name, text) { return text; }, bg(_name, text) { return text; }, bold(text) { return text; } } },
-				sessionManager: { getSessionId() { return sessionId; }, getSessionFile() { return sessionFile; }, getEntries() { return []; } },
+				sessionManager: { getSessionId() { return sessionId; }, getSessionFile() { return sessionFile; }, getEntries() { return []; }, getBranch() { return this.getEntries(); } },
 				modelRegistry: { getAvailable() { return []; } },
 			};
 			registerSubagentExtension(pi);
@@ -878,14 +919,20 @@ describe("subagent extension child mode", () => {
 				};
 				const pi = new Proxy({
 					events,
+					activeTools: [],
+					registeredTools: [],
+					getAllTools() { return this.registeredTools; },
+					getActiveTools() { return this.activeTools; },
+					setActiveTools(tools) { this.activeTools = tools; },
 					on(channel, handler) { handlers.set(channel, [...(handlers.get(channel) ?? []), handler]); },
-					registerTool() {}, registerCommand() {}, registerShortcut() {}, registerMessageRenderer() {},
+					registerTool(tool) { this.registeredTools.push(tool); }, registerCommand() {}, registerShortcut() {}, registerMessageRenderer() {},
 					sendMessage() {}, getSessionName() { return undefined; },
 				}, { get(target, prop) { return prop in target ? target[prop] : () => undefined; } });
 				const sessionManager = {
 					getSessionId() { return sessionId; },
 					getSessionFile() { return "/tmp/" + sessionId + ".jsonl"; },
 					getEntries() { return []; },
+					getBranch() { return this.getEntries(); },
 				};
 				const ctx = {
 					cwd: process.cwd(), isIdle() { return false; }, hasUI: false,
@@ -971,14 +1018,19 @@ describe("subagent extension child mode", () => {
 				const events = { on() { return () => {}; }, emit() {} };
 				const pi = new Proxy({
 					events,
+					activeTools: [],
+					registeredTools: [],
+					getAllTools() { return this.registeredTools; },
+					getActiveTools() { return this.activeTools; },
+					setActiveTools(tools) { this.activeTools = tools; },
 					on(channel, handler) { handlers.set(channel, [...(handlers.get(channel) ?? []), handler]); },
-					registerTool() {}, registerCommand() {}, registerShortcut() {}, registerMessageRenderer() {},
+					registerTool(tool) { this.registeredTools.push(tool); }, registerCommand() {}, registerShortcut() {}, registerMessageRenderer() {},
 					sendMessage() {}, getSessionName() { return undefined; },
 				}, { get(target, prop) { return prop in target ? target[prop] : () => undefined; } });
 				const ctx = {
 					cwd: process.cwd(), isIdle() { return false; }, hasUI: false,
 					ui: { setWidget() {}, requestRender() {}, theme: { fg(_name, text) { return text; }, bg(_name, text) { return text; }, bold(text) { return text; } } },
-					sessionManager: { getSessionId() { return sessionId; }, getSessionFile() { return null; }, getEntries() { return []; } },
+					sessionManager: { getSessionId() { return sessionId; }, getSessionFile() { return null; }, getEntries() { return []; }, getBranch() { return this.getEntries(); } },
 					modelRegistry: { getAvailable() { return []; } },
 				};
 				return { pi, handlers, ctx };
@@ -1046,14 +1098,19 @@ describe("subagent extension child mode", () => {
 			const sent = [];
 			const fakePi = new Proxy({
 				events,
+				activeTools: [],
+				registeredTools: [],
+				getAllTools() { return this.registeredTools; },
+				getActiveTools() { return this.activeTools; },
+				setActiveTools(tools) { this.activeTools = tools; },
 				on(channel, handler) { handlers.set(channel, [...(handlers.get(channel) ?? []), handler]); },
-				registerTool() {}, registerCommand() {}, registerShortcut() {}, registerMessageRenderer() {},
+				registerTool(tool) { this.registeredTools.push(tool); }, registerCommand() {}, registerShortcut() {}, registerMessageRenderer() {},
 				sendMessage(message) { sent.push(message); }, getSessionName() { return undefined; },
 			}, { get(target, prop) { return prop in target ? target[prop] : () => undefined; } });
 			const ctx = {
 				cwd: process.cwd(), isIdle() { return false; }, hasUI: false,
 				ui: { setWidget() {}, requestRender() {}, theme: { fg(_name, text) { return text; }, bg(_name, text) { return text; }, bold(text) { return text; } } },
-				sessionManager: { getSessionId() { return "notify-shutdown-session"; }, getSessionFile() { return null; }, getEntries() { return []; } },
+				sessionManager: { getSessionId() { return "notify-shutdown-session"; }, getSessionFile() { return null; }, getEntries() { return []; }, getBranch() { return this.getEntries(); } },
 				modelRegistry: { getAvailable() { return []; } },
 			};
 			registerSubagentExtension(fakePi);
@@ -1122,14 +1179,20 @@ describe("subagent extension child mode", () => {
 				getSessionId() { return "notify-reload-session"; },
 				getSessionFile() { return null; },
 				getEntries() { return []; },
+				getBranch() { return this.getEntries(); },
 			};
 			function createRuntime() {
 				const handlers = new Map();
 				const sent = [];
 				const pi = new Proxy({
 					events,
+					activeTools: [],
+					registeredTools: [],
+					getAllTools() { return this.registeredTools; },
+					getActiveTools() { return this.activeTools; },
+					setActiveTools(tools) { this.activeTools = tools; },
 					on(channel, handler) { handlers.set(channel, [...(handlers.get(channel) ?? []), handler]); },
-					registerTool() {}, registerCommand() {}, registerShortcut() {}, registerMessageRenderer() {},
+					registerTool(tool) { this.registeredTools.push(tool); }, registerCommand() {}, registerShortcut() {}, registerMessageRenderer() {},
 					sendMessage(message) { sent.push(message); }, getSessionName() { return undefined; },
 				}, { get(target, prop) { return prop in target ? target[prop] : () => undefined; } });
 				const ctx = {
@@ -1211,8 +1274,13 @@ describe("subagent extension child mode", () => {
 			const events = { on() { return () => {}; }, emit() {} };
 			const fakePi = new Proxy({
 				events,
+				activeTools: [],
+				registeredTools: [],
+				getAllTools() { return this.registeredTools; },
+				getActiveTools() { return this.activeTools; },
+				setActiveTools(tools) { this.activeTools = tools; },
 				on(channel, handler) { handlers.set(channel, [...(handlers.get(channel) ?? []), handler]); },
-				registerTool() {}, registerCommand() {}, registerShortcut() {}, registerMessageRenderer() {},
+				registerTool(tool) { this.registeredTools.push(tool); }, registerCommand() {}, registerShortcut() {}, registerMessageRenderer() {},
 				sendMessage() {}, getSessionName() { return undefined; },
 			}, { get(target, prop) { return prop in target ? target[prop] : () => undefined; } });
 			let stale = false;
@@ -1226,7 +1294,7 @@ describe("subagent extension child mode", () => {
 					setWidget() {}, requestRender() {}, setToolsExpanded() {}, getToolsExpanded() { return false; },
 					theme: { fg(_name, text) { return text; }, bg(_name, text) { return text; }, bold(text) { return text; } },
 				},
-				sessionManager: { getSessionId() { return "stale-ui-session"; }, getSessionFile() { return null; }, getEntries() { return []; } },
+				sessionManager: { getSessionId() { return "stale-ui-session"; }, getSessionFile() { return null; }, getEntries() { return []; }, getBranch() { return this.getEntries(); } },
 				modelRegistry: { getAvailable() { return []; } },
 			};
 			registerSubagentExtension(fakePi);
@@ -1271,8 +1339,13 @@ describe("subagent extension child mode", () => {
 				const sent = [];
 				const pi = new Proxy({
 					events,
+					activeTools: [],
+					registeredTools: [],
+					getAllTools() { return this.registeredTools; },
+					getActiveTools() { return this.activeTools; },
+					setActiveTools(tools) { this.activeTools = tools; },
 					on(channel, handler) { handlers.set(channel, [...(handlers.get(channel) ?? []), handler]); },
-					registerTool() {}, registerCommand() {}, registerShortcut() {}, registerMessageRenderer() {},
+					registerTool(tool) { this.registeredTools.push(tool); }, registerCommand() {}, registerShortcut() {}, registerMessageRenderer() {},
 					sendMessage(message) { sent.push(message); }, getSessionName() { return undefined; },
 				}, { get(target, prop) { return prop in target ? target[prop] : () => undefined; } });
 				registerSubagentExtension(pi);
@@ -1286,7 +1359,7 @@ describe("subagent extension child mode", () => {
 			const foreignSession = path.join(sessions, "foreign.jsonl");
 			fs.writeFileSync(oldSession, "");
 			fs.writeFileSync(newSession, "");
-			const ctxFor = (file) => ({ cwd: process.cwd(), isIdle() { return false; }, hasUI: false, ui: { setWidget() {}, requestRender() {}, theme: { fg(_name, text) { return text; }, bg(_name, text) { return text; }, bold(text) { return text; } } }, sessionManager: { getSessionId() { return path.basename(file); }, getSessionFile() { return file; }, getEntries() { return []; } }, modelRegistry: { getAvailable() { return []; } } });
+			const ctxFor = (file) => ({ cwd: process.cwd(), isIdle() { return false; }, hasUI: false, ui: { setWidget() {}, requestRender() {}, theme: { fg(_name, text) { return text; }, bg(_name, text) { return text; }, bold(text) { return text; } } }, sessionManager: { getSessionId() { return path.basename(file); }, getSessionFile() { return file; }, getEntries() { return []; }, getBranch() { return this.getEntries(); } }, modelRegistry: { getAvailable() { return []; } } });
 			const owner = currentCompletionOwnerId();
 			const stamp = Date.now();
 			const writeResult = (name, sessionId) => {
@@ -1337,6 +1410,10 @@ describe("subagent extension child mode", () => {
 				const tools = new Map();
 				const pi = new Proxy({
 					events: { on() { return () => {}; }, emit() {} },
+					activeTools: [],
+					getAllTools() { return [...tools.values()]; },
+					getActiveTools() { return this.activeTools; },
+					setActiveTools(tools) { this.activeTools = tools; },
 					on(channel, handler) { handlers.set(channel, [...(handlers.get(channel) ?? []), handler]); },
 					registerTool(tool) { tools.set(tool.name, tool); }, registerCommand() {}, registerShortcut() {}, registerMessageRenderer() {},
 					sendMessage() {}, getSessionName() { return undefined; },
@@ -1349,7 +1426,7 @@ describe("subagent extension child mode", () => {
 			fs.mkdirSync(sessions, { recursive: true });
 			const sessionFile = (name) => { const file = path.join(sessions, name + ".jsonl"); fs.writeFileSync(file, ""); return file; };
 			const [a, b, foreign, fresh, childSession] = ["a", "b", "foreign", "fresh", "child"].map(sessionFile);
-			const ctxFor = (file) => ({ cwd: process.cwd(), isIdle() { return false; }, hasUI: false, ui: { setWidget() {}, requestRender() {}, theme: { fg(_name, text) { return text; }, bg(_name, text) { return text; }, bold(text) { return text; } } }, sessionManager: { getSessionId() { return path.basename(file); }, getSessionFile() { return file; }, getEntries() { return []; } }, modelRegistry: { getAvailable() { return []; } } });
+			const ctxFor = (file) => ({ cwd: process.cwd(), isIdle() { return false; }, hasUI: false, ui: { setWidget() {}, requestRender() {}, theme: { fg(_name, text) { return text; }, bg(_name, text) { return text; }, bold(text) { return text; } } }, sessionManager: { getSessionId() { return path.basename(file); }, getSessionFile() { return file; }, getEntries() { return []; }, getBranch() { return this.getEntries(); } }, modelRegistry: { getAvailable() { return []; } } });
 			const sleeper = spawn(process.execPath, ["-e", "setTimeout(() => {}, 60000)"], { stdio: "ignore" });
 			const stamp = Date.now();
 			const runs = [];

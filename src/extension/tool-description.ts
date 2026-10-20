@@ -20,7 +20,7 @@ export const SUBAGENT_SAFETY_GUIDANCE = `SAFETY-CRITICAL SUBAGENT GUIDANCE:
 - One writer per cwd/worktree; isolate concurrent writers.
 - After a launch or runtime failure, stop and report it; never silently switch to interactive_shell, pi -ne or another CLI.`;
 
-const scriptCalls = "One child: {agent,task}. Independent parallel children: {workflow:\"parallel\",args:{tasks:[{agent,task},...]}}. Dependent multi-step work: exactly one top-level subagent workflow call with async:true; write one ```js workflow block in this reply, then call subagent({workflow:true}); children launch only inside it.";
+const scriptCalls = "One child: {agent,task}. Independent parallel children: {workflow:\"parallel\",args:{tasks:[{agent,task},...]}}. Dependent multi-step work: exactly one top-level subagent workflow call with async:true; write one ```js workflow block in this reply, then call subagent({workflow:\"true\"}); children launch only inside it.";
 const structuredCalls = "One child: {agent,task}. Parallel: tasks:[{agent,task},...]. In order: chain:[{agent,task?,as?} or {parallel:[{agent,task},...]}]; step tasks can use {task}, {previous} and {outputs.name}. Use exactly one top-level subagent chain or tasks call with async:true.";
 
 const essentials = (on: FeatureText) => `${on("workflow-scripts", scriptCalls, structuredCalls)}
@@ -39,7 +39,7 @@ const managementDiscovery = (on: FeatureText) => [
 ].map((group) => group.filter(Boolean).join(", ")).filter(Boolean).join("; ");
 
 const scriptDetails = `• Scripts: JavaScript statement bodies with explicit return, top-level await, plain helpers/Promise chains; nested async function/arrow/method helpers are rejected. Await runs.run('key',{agent,task}) before .output; await runs.all([{key,agent,task},...]) for an ordered array, not a key map. Observe every stored run promise with direct await, Promise.race or Promise.all. Await/return runs.steer(key,message,options?) for a prior key, never raw run ids; queued/delivered/missed/failed receipts are not compliance proof.
-• workflow:'./path.js' (any value with '/') loads a file from request cwd; other strings name a resource, such as {workflow:'review',args:{task:'...'}}. agent/task exclude workflow; task excludes action; validate accepts workflow:true or a path without launching. Raw-script sandboxes add deeply frozen args that persist as evidence, so never include secrets; raw scripts cannot use runs.host. Granted commands/relative outputs use workflow cwd, never per-step cwd.
+• workflow:'./path.js' (any value with '/') loads a file from request cwd; other strings name a resource, such as {workflow:'review',args:{task:'...'}}. agent/task exclude workflow; task excludes action; validate accepts workflow:"true" or a path without launching. Raw-script sandboxes add deeply frozen args that persist as evidence, so never include secrets; raw scripts cannot use runs.host. Granted commands/relative outputs use workflow cwd, never per-step cwd.
 • runs.lanes([{key,stages:[{key,agent,task},{key,resume:'previous',task}]}]) runs first stages together, later stages sequentially per lane. Failures stay lane-local; only explicit structuredOutput.verdict === 'blocked' blocks a successful stage, never reviewer prose.
 `;
 

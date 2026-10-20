@@ -1,4 +1,4 @@
-// Run with Node >=22.19.0: node --experimental-strip-types test/smoke/clean-install.mjs [artifact-dir] [0.86.1|1.0.0|1.2.0]
+// Run with Node >=22.19.0: node --experimental-strip-types test/smoke/clean-install.mjs [artifact-dir] [0.85.1]
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -7,11 +7,11 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const source = fileURLToPath(new URL("../../", import.meta.url));
-const version = process.argv[3] ?? "0.86.1";
-const supportedVersions = ["0.86.1", "1.0.0", "1.2.0"];
-assert.ok(supportedVersions.includes(version), `requires a supported smoke version: ${supportedVersions.join(", ")}`);
-const root = process.argv[2] ? path.resolve(process.argv[2]) : fs.mkdtempSync(path.join(os.tmpdir(), "clean-install-smoke-"));
-fs.mkdirSync(root, { recursive: true });
+const version = process.argv[3] ?? "0.85.1";
+assert.equal(version, "0.85.1", "the smoke requires the provider-compatible Pi 0.85.1 host");
+const requestedRoot = process.argv[2] ? path.resolve(process.argv[2]) : fs.mkdtempSync(path.join(os.tmpdir(), "clean-install-smoke-"));
+fs.mkdirSync(requestedRoot, { recursive: true });
+const root = fs.realpathSync(requestedRoot);
 const host = path.join(root, "host");
 const extension = path.join(root, "extension");
 const cwd = path.join(root, "cwd");
@@ -35,7 +35,11 @@ function run(name, command, args, workdir, extra = {}, success = true, timeout =
 	else assert.notEqual(result.status, 0, `${name} unexpectedly passed`);
 	return result;
 }
-fs.writeFileSync(path.join(host, "package.json"), JSON.stringify({ private: true, dependencies: { "@earendil-works/pi-coding-agent": version } }));
+const sdkPackages = ["@earendil-works/pi-coding-agent", "@earendil-works/pi-agent-core", "@earendil-works/pi-ai", "@earendil-works/pi-tui"];
+fs.writeFileSync(path.join(host, "package.json"), JSON.stringify({
+	private: true,
+	dependencies: { ...Object.fromEntries(sdkPackages.map((name) => [name, version])), typebox: "1.3.7" },
+}));
 // Installing the Pi host from the registry has taken over four minutes on slow days; the job timeout still bounds it.
 run("host-install", "npm", ["install", "--no-audit", "--no-fund"], host, {}, true, 420000);
 run("build-package", process.execPath, ["scripts/build-package.mjs"], source);
@@ -47,9 +51,9 @@ assert.ok(packed.files.some(file => file.path === "index.js"), "compiled extensi
 assert.ok(packed.files.some(file => file.path === "src/inspectors/inspector-runner.js"), "compiled inspector runner must ship");
 assert.ok(packed.files.some(file => file.path === "src/runs/background/subagent-runner-bootstrap.js"), "compiled background bootstrap must ship");
 assert.ok(packed.files.some(file => file.path === "src/runs/background/subagent-runner.js"), "compiled background execution module must ship");
-fs.writeFileSync(path.join(extension, "package.json"), JSON.stringify({ private: true, dependencies: { "pi-subagents": `file:${path.join(root, packed.filename)}` } }));
+fs.writeFileSync(path.join(extension, "package.json"), JSON.stringify({ private: true, dependencies: { "@dev-sergeev/pi-subagents": `file:${path.join(root, packed.filename)}` } }));
 run("extension-install", "npm", ["install", "--no-audit", "--no-fund"], extension);
-const installed = path.join(extension, "node_modules/pi-subagents");
+const installed = path.join(extension, "node_modules", "@dev-sergeev", "pi-subagents");
 const inspectorRun = path.join(root, "inspector-run");
 fs.mkdirSync(inspectorRun);
 fs.writeFileSync(path.join(inspectorRun, "status.json"), JSON.stringify({
@@ -67,10 +71,18 @@ assert.equal(findHostPeerPackageDir(pi, "@earendil-works/pi-client"), undefined,
 run("pristine-public-sdk", process.execPath, ["--input-type=module", "-e", `await import(${JSON.stringify(pathToFileURL(resolvePackageSubpath(pi, ".")).href)})`], cwd);
 const resolved = resolveHostPeerAliases(pi);
 assert.deepEqual(resolved.missing, []);
+for (const [name, expected] of [...sdkPackages.map((name) => [name, version]), ["typebox", "1.3.7"]]) {
+	const packageDir = findHostPeerPackageDir(pi, name);
+	assert.ok(packageDir?.startsWith(host + path.sep), `${name} must come from the isolated host install`);
+	assert.equal(JSON.parse(fs.readFileSync(path.join(packageDir, "package.json"), "utf8")).version, expected, name);
+}
+for (const [specifier, target] of Object.entries(resolved.aliases)) {
+	assert.ok(target.startsWith(host + path.sep), `${specifier} must retain host module identity`);
+}
 const tui = findHostPeerPackageDir(pi, "@earendil-works/pi-tui");
 assert.ok(tui.startsWith(host + path.sep), "TUI must come from the host install");
 assert.equal(resolved.aliases["@earendil-works/pi-tui"], resolvePackageSubpath(tui, "."));
-// Pi 1.2.0 dropped chord: alias it exactly when the real host install declares it.
+// The pinned host declares chord; keep both entrypoints on that host's copy.
 const hostDeclaresChord = Boolean(JSON.parse(fs.readFileSync(path.join(pi, "package.json"), "utf8")).dependencies?.["@earendil-works/chord"]);
 for (const specifier of ["@earendil-works/chord", "@earendil-works/chord/context"]) {
 	assert.equal(Boolean(resolved.aliases[specifier]), hostDeclaresChord, specifier);
@@ -97,6 +109,16 @@ const childEnv = {
 const jiti = path.join(extension, "node_modules/jiti/lib/jiti-cli.mjs");
 const args = [jiti, path.join(cwd, "sdk-child.ts")];
 const preload = Object.keys(resolved.aliases).length ? ["--import", pathToFileURL(path.join(installed, "runner-peer-preload.mjs")).href] : [];
+run("public-entrypoints", process.execPath, [...preload, "--input-type=module", "-e", `
+	import assert from "node:assert/strict";
+	import fs from "node:fs";
+	const manifest = JSON.parse(fs.readFileSync(${JSON.stringify(path.join(installed, "package.json"))}, "utf8"));
+	for (const subpath of Object.keys(manifest.exports)) {
+		const specifier = "@dev-sergeev/pi-subagents" + (subpath === "." ? "" : subpath.slice(1));
+		const api = await import(specifier);
+		if (subpath === ".") assert.equal(typeof api.default, "function");
+	}
+`], extension, { ...childEnv, PI_SUBAGENT_CHILD: "1" });
 const positive = run("child", process.execPath, [...preload, ...args], cwd, childEnv);
 assert.match(positive.stdout, /PASS public SDK\/default child factory/);
 const packedSelection = run("packed-selection", process.execPath, [

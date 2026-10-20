@@ -23,13 +23,13 @@ export function readReplyWorkflowScript(sessionManager: Pick<ExtensionContext["s
 		if (!message.content.some((block) => block.type === "toolCall" && block.id === toolCallId)) continue;
 		return scriptFromReply(message.content);
 	}
-	return { error: "workflow: true only works from a model subagent tool call whose assistant message contains the ```js workflow block; other callers must pass a script path such as workflow: \"./script.js\"." };
+	return { error: "workflow: \"true\" only works from a model subagent tool call whose assistant message contains the ```js workflow block; other callers must pass a script path such as workflow: \"./script.js\"." };
 }
 
 function scriptFromReply(content: AssistantMessage["content"]): ReplyWorkflowScript {
 	const replyCalls = content.filter((block) => block.type === "toolCall" && block.name === "subagent"
-		&& (block.arguments?.workflow === true || block.arguments?.workflow === "true")).length;
-	if (replyCalls > 1) return { error: `This reply has ${replyCalls} subagent calls with workflow: true; a reply can carry only one. Pass other scripts as workflow file paths.` };
+		&& block.arguments?.workflow === "true").length;
+	if (replyCalls > 1) return { error: `This reply has ${replyCalls} subagent calls with workflow: "true"; a reply can carry only one. Pass other scripts as workflow file paths.` };
 	if (!content.some((block) => block.type === "text")) return { error: "The assistant message that issued this call has no text in the session, so the reply's visible text, including any ```js workflow block, never reached it. Write the script to a file and pass its path, such as workflow: \"./script.js\"." };
 	const text = content.flatMap((block) => block.type === "text" && typeof block.text === "string" ? [block.text] : []).join("\n");
 	const { tagged, plain, unclosed } = workflowBlocks(text);
@@ -38,7 +38,7 @@ function scriptFromReply(content: AssistantMessage["content"]): ReplyWorkflowScr
 	const blocks = tagged.length > 0 ? tagged : plain.length === 1 ? plain : [];
 	if (blocks.length !== 1) {
 		const untagged = tagged.length === 0 && plain.length > 1 ? ` This reply has ${plain.length} untagged js blocks; open the script's block with the line "\`\`\`js workflow".` : "";
-		return { error: `workflow: true needs one fenced block in the same reply as the tool call, opened with the exact line "\`\`\`js workflow" and closed with "\`\`\`"; found ${tagged.length}.${untagged} ${FILE_FALLBACK}` };
+		return { error: `workflow: "true" needs one fenced block in the same reply as the tool call, opened with the exact line "\`\`\`js workflow" and closed with "\`\`\`"; found ${tagged.length}.${untagged} ${FILE_FALLBACK}` };
 	}
 	const script = blocks[0]!;
 	if (!script.trim()) return { error: "The script's fenced block in this reply is empty." };

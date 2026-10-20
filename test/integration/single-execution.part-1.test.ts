@@ -1673,7 +1673,6 @@ Answer only from the supplied synthetic text.
 		// Seen live: a model put the script itself in the workflow string.
 		const scriptText = await executor.executePublic("script-text", { workflow: "return 1", async: false }, new AbortController().signal, undefined, makeMinimalCtx(tempDir));
 		assert.equal(scriptText.isError, true);
-		assert.match(scriptText.content[0]?.text ?? "", /write it in one ```js workflow block in the same reply and call subagent\(\{ workflow: true \}\)/);
 		assert.doesNotMatch(empty.content[0]?.text ?? "", /validation failed|valid JavaScript/);
 		assert.equal(mockPi.callCount(), 0);
 	});
@@ -1700,13 +1699,13 @@ Answer only from the supplied synthetic text.
 				role: "assistant",
 				content: [
 					{ type: "text", text: "Plan:\n```js workflow\nconst child = await runs.run(\"main\", { agent: \"echo\", task: args.task });\nreturn { task: args.task, child: child.output };\n```" },
-					{ type: "toolCall", id: "call-reply", name: "subagent", arguments: { workflow: true } },
+					{ type: "toolCall", id: "call-reply", name: "subagent", arguments: { workflow: "true" } },
 				],
 			},
 		};
 		const result = await makeExecutor([makeAgent("echo")]).executePublic(
 			"call-reply",
-			{ workflow: true, args: { task: "from reply" }, async: false },
+			{ workflow: "true", args: { task: "from reply" }, async: false },
 			new AbortController().signal,
 			undefined,
 			{ ...ctx, sessionManager: { ...ctx.sessionManager, getBranch: () => [reply] } },

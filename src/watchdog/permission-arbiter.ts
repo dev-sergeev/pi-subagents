@@ -3,13 +3,14 @@ import { convertToLlm, type ExtensionContext } from "@earendil-works/pi-coding-a
 import { Type, type Static } from "typebox";
 import { appendPermissionAudit, permissionArgsPreview } from "../runs/shared/permissions.ts";
 import { agentStreamOptions } from "../shared/agent-stream-options.ts";
+import { streamRegistryModel } from "../shared/registry-stream.ts";
 import { opencodeSessionHeaders } from "../shared/opencode-session-headers.ts";
 import { decodeChildWatchdogConfig } from "./child-status.ts";
 import { childResolvedConfig } from "./register-child.ts";
 import { formatWatchdogCwdSection, resolveWatchdogReviewModel } from "./review.ts";
 
 const PermissionDecisionParams = Type.Object({
-	decision: Type.String({ enum: ["approve", "deny"] }),
+	decision: Type.String({ enum: ["approve", "deny"], description: "Approve or deny only the exact child tool call presented for arbitration; deny when uncertain." }),
 	reason: Type.String({ description: "One concise reason for this exact decision." }),
 }, { additionalProperties: false });
 
@@ -95,8 +96,8 @@ export function createWatchdogPermissionArbiter(options: WatchdogPermissionArbit
 				const selection = await resolveWatchdogReviewModel(request.ctx, config);
 				const auth = selection.auth;
 				const sessionId = request.ctx.sessionManager.getSessionId();
-				const baseStreamFn: StreamFn = options.streamFn ?? ((model, context, streamOptions) => request.ctx.modelRegistry.streamSimple(model, context, streamOptions));
-				const streamFn: StreamFn = (model, context, streamOptions) => baseStreamFn(model, context, {
+				const baseStreamFn: StreamFn = options.streamFn ?? ((model, context, streamOptions) => streamRegistryModel(request.ctx.modelRegistry, model, context, streamOptions));
+				const streamFn: StreamFn = (model, context, streamOptions) => baseStreamFn(auth.baseUrl && auth.baseUrl !== model.baseUrl ? { ...model, baseUrl: auth.baseUrl } : model, context, {
 					...streamOptions,
 					...(auth.apiKey ? { apiKey: auth.apiKey } : {}),
 					env: auth.env || streamOptions?.env ? { ...(auth.env ?? {}), ...(streamOptions?.env ?? {}) } : undefined,
